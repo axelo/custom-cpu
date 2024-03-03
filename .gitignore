@@ -1,1 +1,5 @@
 build/*.dSYM
+kicad/*-backups
+kicad/~*
+
+.DS_Store
