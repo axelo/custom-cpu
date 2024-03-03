@@ -11,4 +11,4 @@ kicad/*.kicad_prl
 .DS_Store
 
 # Build artifacts
-build/*.dSYM
+build/
