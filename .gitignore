@@ -1,5 +1,14 @@
-build/*.dSYM
+# KiCad
 kicad/*-backups
 kicad/~*
+kicad/fp-info-cache
+kicad/*.dsn
+kicad/*.ses
+kicad/*.rules
+kicad/*.kicad_prl
 
+# macOS
 .DS_Store
+
+# Build artifacts
+build/*.dSYM
