@@ -26,6 +26,8 @@ typedef enum {
     SEL_C  = 1 << 15,
 } S;
 
+#define C_LD_S S_C(2 /*LD_S*/)
+
 #define S_ACTIVE_LOW_MASK (LD_C | LD_F | LD_MEM | LD_ML | LD_MH | OE_ALU | OE_C | OE_MEM | OE_T)
 #define S_C(c) ((uint16_t)((c & 0x7) << 12))
 #define S_OE_IO_C(port) ((uint16_t)(((1 << port) & 0xf) << 12))
@@ -43,9 +45,11 @@ typedef enum {
 } A;
 
 typedef enum {
-    AU_SHR    = 0xfc,
-    AU_SHR_F  = 0xfd,
-    AU_BOOT_F = 0x10,
+    AU_SHR      = 0xfc,
+    AU_SHR_F    = 0xfd,
+    AU_MBIT7    = 0xfe,
+    AU_OR_BIT   = 0x40, // 0x40..0x7f
+    AU_BOOT_F   = 0x10,
 } AU;
 
 typedef enum {
@@ -135,7 +139,9 @@ typedef enum {
     CALL_I16_BEGIN,
     CALL_I16_END,
     RET,
-    O_NOP1
+    O_NOP2,
+    O_LD_A_WBIT_B_RBIT_END,
+    O_LD_B_WBIT_A_RBIT_END,
 } O;
 
 #define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
@@ -179,6 +185,10 @@ static uint8_t alu_signals(uint8_t ls, uint8_t rs, A op) {
             return (uint8_t)((initf << 3) | (sf << 2) | (cf << 1) | (zf << 0));
         }
 
+        case AU_MBIT7: {
+             return ls & 0x80;
+         }
+
         case AU_BOOT_F: {
             uint8_t zf = 1; // zf and sf at the same time should never make sense elsewhere.
             uint8_t cf = 0;
@@ -188,7 +198,20 @@ static uint8_t alu_signals(uint8_t ls, uint8_t rs, A op) {
             return (uint8_t)((initf << 3) | (sf << 2) | (cf << 1) | (zf << 0));
         }
 
-        default: return 1;
+        case AU_OR_BIT:
+
+        default: {
+
+            if (rs >= AU_OR_BIT && rs < (AU_OR_BIT + 0x40)) {
+                uint8_t write_pos = (rs >> 3) & 0x7;
+                uint8_t read_pos  = rs & 0x7;
+                uint8_t or_bit = (uint8_t)(((ls >> read_pos) & 1) << write_pos);
+
+                return or_bit;
+            } else {
+                return 1;
+            }
+        }
         }
     }
 
@@ -249,6 +272,10 @@ static void test_alu(uint8_t alu[ALU_ROM_SIZE]) {
                 assert(initf == 1);
             } break;
 
+            case AU_MBIT7: {
+                 assert(q == (ls & 0x80));
+             } break;
+
             case AU_BOOT_F: {
                 assert(zf == 1);
                 assert(cf == 0);
@@ -256,9 +283,15 @@ static void test_alu(uint8_t alu[ALU_ROM_SIZE]) {
                 assert(initf == 0);
             } break;
 
+            case AU_OR_BIT:
+
             default: {
-                assert(zf == 1);
-                assert(initf == 0);
+                if (rs >= AU_OR_BIT && rs < (AU_OR_BIT + 0x40)) {
+                    assert(q == (uint8_t)(((ls >> (rs & 0x7)) & 1) << ((rs >> 3) & 0x7)));
+                } else {
+                    assert(zf == 1);
+                    assert(initf == 0);
+                }
             } break;
             }
         } break;
@@ -339,9 +372,8 @@ static uint16_t control_init_signals(uint8_t s, uint8_t f) {
 static uint16_t instr_ld_r8_i8(C r8, uint8_t s) {
     switch (s) {
     case 1: return OE_MEM | LD_T   | S_C(r8) | SEL_C | LD_C | INC_M;
-    case 2: return OE_T   | LD_MEM;
-    case 3: return OE_C   |                    SEL_M | LD_C;
-    case 4: return OE_C   | S_C(2 /*LD_S*/);
+    case 2: return OE_T   | LD_MEM |           SEL_M | LD_C;
+    case 3: return OE_C   | C_LD_S;
     default: return OE_C;
     }
 }
@@ -548,23 +580,24 @@ static uint16_t instr_incc_r8(C r8, bool cf_set, uint8_t s) {
     }
 }
 
+// 11 clocks.
 static uint16_t instr_shl_r8(C r8, uint8_t s) {
     switch (s) {
-    case 0x1: return OE_ALU |          S_C(C_T_ML)  | SEL_C | LD_C;
-    case 0x2: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
-    case 0x3: return OE_ALU | LD_MEM | S_C(r8)      | SEL_C | LD_C;
-    case 0x4: return OE_MEM | LD_ML | LD_MH | S_C(A_ADD_F) | SEL_C | LD_C;
-    case 0x5: return OE_ALU | LD_F   | S_C(A_ADD)   | SEL_C | LD_C;
-    case 0x6: return OE_ALU | LD_T   | S_C(r8)      | SEL_C | LD_C;
-    case 0x7: return OE_T   | LD_MEM;
-    case 0x8: return OE_C            | S_C(C_T_ML)  | SEL_C | LD_C;
-    case 0x9: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
-    case 0xa: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xb: return OE_C   | S_C(2)/*LD_S*/;
+    case 0x1: return OE_ALU |                   S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x2: return OE_ALU | LD_MEM          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM          | S_C(r8)      | SEL_C | LD_C;
+    case 0x4: return OE_MEM | (LD_ML | LD_MH) | S_C(A_ADD_F) | SEL_C | LD_C;
+    case 0x5: return OE_ALU | LD_F            | S_C(A_ADD)   | SEL_C | LD_C;
+    case 0x6: return OE_ALU | LD_T            | S_C(r8)      | SEL_C | LD_C;
+    case 0x7: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x8: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x9: return OE_MEM | LD_MH                          | SEL_M | LD_C;
+    case 0xa: return OE_C   | C_LD_S;
     default: return OE_C;
     }
 }
 
+// 13 clocks.
 static uint16_t instr_shr_r8(C r8, uint8_t s) {
     switch (s) {
     case 0x1: return OE_ALU |          S_C(C_T_ML)  | SEL_C | LD_C;
@@ -575,12 +608,34 @@ static uint16_t instr_shr_r8(C r8, uint8_t s) {
     case 0x6: return OE_ALU | LD_F   | S_C(AU_SHR)  | SEL_C | LD_C;
     case 0x7: return OE_C   | LD_MH  | S_C(A_UNARY) | SEL_C | LD_C;
     case 0x8: return OE_ALU | LD_T   | S_C(r8)      | SEL_C | LD_C;
-    case 0x9: return OE_T   | LD_MEM;
-    case 0xa: return OE_C            | S_C(C_T_ML)  | SEL_C | LD_C;
-    case 0xb: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
-    case 0xc: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xd: return OE_C   | S_C(2)/*LD_S*/;
+    case 0x9: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0xa: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xb: return OE_MEM | LD_MH                 | SEL_M | LD_C;
+    case 0xc: return OE_C   | C_LD_S;
     default: return OE_C;
+    }
+}
+
+// // Assumes C_T has the AND-mask for dest_r8.
+// ld a[1], b[7]
+static uint16_t instr_ld_r8_wbit_r8_rbit_end(C dest_r8, C src_r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_MEM | LD_T            | S_C(C_T_ML)   | SEL_C | LD_C | INC_M; //  T = clear/set bit
+    case 0x2: return OE_ALU | LD_MEM          | S_C(C_T_MH)   | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM          | S_C(0)        | SEL_C | LD_C;
+    case 0x4: return OE_T   | LD_MH           | S_C(src_r8)   | SEL_C | LD_C; // MH = AU_OR_BIT
+    case 0x5: return OE_MEM | LD_ML           | S_C(A_UNARY)  | SEL_C | LD_C; // ML = src_r8
+    case 0x6: return OE_ALU | LD_T            | S_C(C_T)      | SEL_C | LD_C; //  T = or mask
+    case 0x7: return OE_MEM | LD_MH           | S_C(dest_r8)  | SEL_C | LD_C; // MH = clear bit mask
+    case 0x8: return OE_MEM | LD_ML           | S_C(A_NAND)   | SEL_C | LD_C; // ML = dest_r8
+    case 0x9: return OE_ALU | (LD_ML | LD_MH);
+    case 0xa: return OE_ALU | LD_ML;                                          // ML = dest_r8 & and mask
+    case 0xb: return OE_T   | LD_MH           | S_C(A_OR)     | SEL_C | LD_C; // MH = or mask
+    case 0xc: return OE_ALU | LD_T            | S_C(dest_r8)  | SEL_C | LD_C; //  T = ML | or mask
+    case 0xd: return OE_T   | LD_MEM          | S_C(C_T_ML)   | SEL_C | LD_C; // dest_r8 = T
+    case 0xe: return OE_MEM | LD_ML           | S_C(C_T_MH)   | SEL_C | LD_C;
+    case 0xf: return OE_MEM | LD_MH                           | SEL_M | LD_C;
+    default:  return OE_C;
     }
 }
 
@@ -598,7 +653,7 @@ static uint16_t instr_and_r8_i8(C r8, uint8_t s) {
     case 0xa: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0xb: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xc: return OE_MEM | LD_MH                          | SEL_M | LD_C;
-    case 0xd: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xd: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -610,13 +665,13 @@ static uint16_t instr_or_r8_i8(C r8, uint8_t s) {
     case 0x3: return OE_ALU | LD_MEM          | S_C(r8)      | SEL_C | LD_C;
     case 0x4: return OE_MEM | LD_ML;
     case 0x5: return OE_T   | LD_MH           | S_C(A_OR)    | SEL_C | LD_C;
-    case 0x6: return OE_ALU | LD_T            | S_C(0)       | SEL_C | LD_C; // T = ML or MH
-    case 0x7: return OE_C   | LD_MH           | S_C(A_ADD_F) | SEL_C | LD_C;
-    case 0x8: return OE_ALU | LD_F            | S_C(r8)      | SEL_C | LD_C;
+    case 0x6: return OE_ALU | (LD_T | LD_ML)  | S_C(0)       | SEL_C | LD_C; // T, ML = ML or MH
+    case 0x7: return OE_C   | LD_MH           | S_C(A_ADD_F) | SEL_C | LD_C; // MH = 0
+    case 0x8: return OE_ALU | LD_F            | S_C(r8)      | SEL_C | LD_C; // ALU = (ML or MH) + 0 (flags)
     case 0x9: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xb: return OE_MEM | LD_MH                          | SEL_M | LD_C;
-    case 0xc: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xc: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -766,7 +821,7 @@ static uint16_t instr_ret(uint8_t s) {
     }
 }
 
-static uint16_t instr_nop1(uint8_t s) {
+static uint16_t instr_nop2(uint8_t s) {
     switch (s) {
     case 0x1: return OE_C | S_C(2)/*LD_S*/;
     default: return OE_C;
@@ -889,7 +944,10 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case CALL_I16_END:   return instr_call_i16_end(s);
     case RET:            return instr_ret(s);
 
-    case O_NOP1: return instr_nop1(s);
+    case O_NOP2: return instr_nop2(s);
+
+    case O_LD_A_WBIT_B_RBIT_END: return instr_ld_r8_wbit_r8_rbit_end(C_A, C_B, s);
+    case O_LD_B_WBIT_A_RBIT_END: return instr_ld_r8_wbit_r8_rbit_end(C_B, C_A, s);
 
     default: break;
     }
@@ -1013,7 +1071,10 @@ static const char* customasm_rule_from_opcode(O o) {
     case CALL_I16_END:   return NULL;
     case RET:            return "ret => ?";
 
-    case O_NOP1: return "nop1 => ?";
+    case O_NOP2: return "nop2 => ?";
+
+    case O_LD_A_WBIT_B_RBIT_END: return NULL;
+    case O_LD_B_WBIT_A_RBIT_END: return NULL;
 
     default: return NULL;
     }
@@ -1023,9 +1084,16 @@ static void combined_customasm_rules(int n, char buffer[n]) {
     const char *customasm_combined_rules =
         "#ruledef combined_instructions {\n"
         "    call {i:i16} => 0x%02x @ i @ 0x%02x\n"
+        "\n"
+        "    ld a[{wbit: u3}], b[{rbit: u3}] => 0x%02x @ (!(1 << wbit))`8 @ 0x%02x @ (0x%02x + ((wbit << 3) | rbit))`8\n"
+        "    ld b[{wbit: u3}], a[{rbit: u3}] => 0x%02x @ (!(1 << wbit))`8 @ 0x%02x @ (0x%02x + ((wbit << 3) | rbit))`8\n"
         "}\n";
 
-    int slength = snprintf(buffer, n, customasm_combined_rules, CALL_I16_BEGIN, CALL_I16_END);
+    int slength = snprintf(buffer, n, customasm_combined_rules,
+        CALL_I16_BEGIN, CALL_I16_END,
+        O_LD_T_I8, O_LD_A_WBIT_B_RBIT_END, AU_OR_BIT,
+        O_LD_T_I8, O_LD_B_WBIT_A_RBIT_END, AU_OR_BIT
+    );
 
     if (slength >= n) {
         fprintf(stderr, "Failed to write combined customasm rules %s, reason: %s\n", customasm_combined_rules, "string buffer too small");
