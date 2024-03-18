@@ -30,4 +30,4 @@ clang "${flags[@]}" -o ./build/control_roms control_roms.c
 pushd ./build && UBSAN_OPTIONS="halt_on_error=1 report_error_type=1 print_stacktrace=1" ./control_roms ; popd
 
 set +x
-customasm -q -dPROGRAM_START_ADDRESS=0x0000 rom/boot.asm -f symbols -p | grep "^uart_" | grep -v "\." > build/rom/symbols.inc
+customasm -q -dPROGRAM_START_ADDRESS=0x0000 rom/boot.asm -f symbols -p | grep -v "\." | grep -v "^PROGRAM_START_ADDRESS" > build/rom/symbols.inc

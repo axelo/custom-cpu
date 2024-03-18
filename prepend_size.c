@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
         sum_of_bytes += program[i];
     }
 
-    uint8_t checksum = (uint8_t)(~sum_of_bytes) + 1;
+    uint8_t checksum = (uint8_t)((~sum_of_bytes) + 1);
 
     printf("read %zd bytes, sum of bytes is 0x%02llx, checksum: 0x%02x\n", read_bytes, sum_of_bytes,checksum);
 

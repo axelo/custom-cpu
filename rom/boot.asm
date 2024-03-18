@@ -4,24 +4,29 @@ nop
 
 call uart_init
 
-; Program start
-ld b, "="
-call uart_cts_write_u8
+call uart_wait_until_rts
 
-call uart_cts_flush
+call uart_flush
+
+; Program start
+boot_ready:
+ld b, "="
+call uart_write_u8
 
 ld b, "?"
-call uart_cts_write_u8
-
+call uart_write_u8
 
 ; Read size into de
-call uart_cts_blocking_read_u8
+call uart_blocking_read_u8
+ld a, b
 ld d, a
-call uart_cts_blocking_read_u8
+call uart_blocking_read_u8
+ld a, b
 ld e, a
 
+
 ld b, "#"
-call uart_cts_write_u8
+call uart_write_u8
 
 ; Read de bytes into bc (0x1000)
 ld b, 0x10
@@ -34,8 +39,9 @@ ld c, 0x00
 
     push b
     ld b, "."
-    call uart_cts_write_u8
-    call uart_cts_blocking_read_u8
+    call uart_write_u8
+    call uart_blocking_read_u8
+    ld a, b
     pop b
 
     ld [bc], a
@@ -46,16 +52,18 @@ ld c, 0x00
     jmp .next
 
 .done:
-    ld b, "!"
-    call uart_cts_write_u8
+    call uart_flush
 
-    call uart_cts_blocking_read_u8
-    call uart_cts_flush
+    ld b, "!"
+    call uart_write_u8
+
+    call uart_blocking_read_u8
 
     jmp 0x1000
 
+#include "delay.inc"
 
-#include "uart.asm"
+#include "uart.inc"
 
 #addr 0x1000 - 1
-boot_end: #d8 0x00
+.boot_end: #d8 0x00
