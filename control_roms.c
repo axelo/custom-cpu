@@ -6,29 +6,11 @@
 #include <string.h>
 #include <unistd.h>
 
-typedef enum {
-    LD_MH  = 1 << 0,
-    LD_ML  = 1 << 1,
-    INC_M  = 1 << 2,
-    OE_MEM = 1 << 3,
-    OE_T   = 1 << 4,
-    OE_IO  = 1 << 5,
-    LD_T   = 1 << 6,
-    LD_MEM = 1 << 7,
-    LD_F   = 1 << 8,
-    OE_C   = 1 << 9,
-    OE_ALU = 1 << 10,
-    LD_C   = 1 << 11,
-    S_C0   = 1 << 12,
-    S_C1   = 1 << 13,
-    S_C2   = 1 << 14,
-    SEL_M  = 0 << 15,
-    SEL_C  = 1 << 15,
-} S;
+#include "control_roms.h"
+#include "emulate.h"
 
 #define C_LD_S S_C(2 /*LD_S*/)
 
-#define S_ACTIVE_LOW_MASK (LD_C | LD_F | LD_MEM | LD_ML | LD_MH | OE_ALU | OE_C | OE_MEM | OE_T)
 #define S_C(c) ((uint16_t)((c & 0x7) << 12))
 #define S_OE_IO_C(port) ((uint16_t)(((1 << port) & 0xf) << 12))
 #define S_LD_IO_C(port) ((uint16_t)((~(1 << port) & 0xf) << 12))
@@ -62,13 +44,6 @@ typedef enum {
     C_T_ML = A_LS,
     C_T_MH = A_RS,
 } C;
-
-typedef enum {
-    F_Z = 1 << 0, // Zero
-    F_C = 1 << 1, // Carry
-    F_S = 1 << 2, // Sign
-    F_I = 1 << 3, // Init, active low
-} F;
 
 typedef enum {
     O_NOP = 0x00,
@@ -111,7 +86,7 @@ typedef enum {
     DEC_D,
     DEC_E,
     DECC_D,
-    INC_A,
+    O_INC_A,
     INC_B,
     INC_C,
     INC_D,
@@ -142,13 +117,19 @@ typedef enum {
     O_NOP2,
     O_LD_A_WBIT_B_RBIT_END,
     O_LD_B_WBIT_A_RBIT_END,
+    O_LD_B_AT_DE_INC,
+    O_LD_C_AT_DE_INC,
+    O_LD_BC_I16,
+    O_LD_DE_I16,
+    O_LD_AT_DE_INC_A,
+    O_LD_AT_DE_A,
+    O_LD_A_AT_I16,
+    O_LD_B_AT_I16,
+    O_LD_AT_I16_A,
+    O_LD_AT_I16_B,
 } O;
 
 #define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
-
-#define CONTROL_ROM_SIZE (1 << 17)
-#define ALU_ROM_SIZE     (1 << 19)
-#define BOOT_ROM_SIZE    0x1000
 
 static uint8_t alu_signals(uint8_t ls, uint8_t rs, A op) {
     switch ((A)op) {
@@ -310,6 +291,127 @@ static void test_alu(uint8_t alu[ALU_ROM_SIZE]) {
     }
 }
 
+static void test_instr_nop(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[ALU_ROM_SIZE]) {
+    printf("nop\t");
+
+    State state = {0};
+    state.f = F_I;
+
+    uint16_t pc = ((uint16_t)(state.mh << 8) | state.ml);
+    state.mem[pc] = O_NOP;
+
+    for (uint16_t i = 0xfff0; i < 0xfff8; ++i)
+        state.mem[i] = i & 0xff;
+
+    uint16_t pc_expected  = pc + 1;
+    uint8_t step_expected = 16;
+
+    State org_state = state;
+
+    int step;
+    for (step = 1; step < 20; ++step)
+        if (emulate_next_cycle(false, control, alu, &state)) break;
+
+    uint16_t pc_after = (uint16_t)(state.mh << 8) | state.ml;
+
+    if (step != step_expected) {
+        printf("failed\n");
+        fprintf(stderr, "expected %02x steps, got %02x\n", step_expected, step);
+        exit(1);
+    }
+
+    if (pc_after != pc_expected) {
+        printf("failed\n");
+        fprintf(stderr, "unexpected pc, got %04x, expected %04x\n", pc_after, pc_expected);
+        exit(1);
+    }
+
+    if (org_state.o != state.o) assert(false);
+    if (org_state.f != state.f) assert(false);
+    if (org_state.c != state.c) assert(false);
+    if (org_state.t != state.t) assert(false);
+
+    for (uint16_t i = 0xfff0; i < 0xfff8; ++i)
+        if (org_state.mem[i] != state.mem[i]) assert(false && "unexpected mem change");
+
+    printf("passed\n");
+}
+
+static void test_instr_inc_r8(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[ALU_ROM_SIZE]) {
+    printf("inc a\t");
+
+    for (int c_a = 0x00; c_a < 0x100; ++c_a) {
+        State state = {0};
+        state.f = F_I;
+
+        uint16_t pc = ((uint16_t)(state.mh << 8) | state.ml);
+        state.mem[pc] = O_INC_A;
+
+        state.mem[0xfff0] = (uint8_t)c_a;
+
+        uint16_t pc_expected  = pc + 1;
+        uint8_t step_expected = 0xd;
+        uint8_t c_a_expected = (uint8_t)(c_a + 1);
+
+        int step;
+        for (step = 1; step < 20; ++step)
+            if (emulate_next_cycle(false, control, alu, &state)) break;
+
+        uint16_t pc_after = (uint16_t)(state.mh << 8) | state.ml;
+        uint8_t c_a_after = state.mem[0xfff0];
+
+        if (step != step_expected) {
+            printf("failed\n");
+            fprintf(stderr, "expected %02x steps, got %02x\n", step_expected, step);
+            exit(1);
+        }
+
+        if (pc_after != pc_expected) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected pc, got %04x, expected %04x\n", pc_after, pc_expected);
+            exit(1);
+        }
+
+        if (c_a_after != c_a_expected) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected c_a, got %02x, expected %02x\n", c_a_after, c_a_expected);
+            exit(1);
+        }
+
+        if (c_a_after == 0 && !(state.f & F_Z)) {
+            printf("failed\n");
+            fprintf(stderr, "expected zero flag to be set\n");
+            exit(1);
+        } else if (c_a_after != 0 && (state.f & F_Z)) {
+            printf("failed\n");
+            fprintf(stderr, "expected zero flag to be cleared\n");
+            exit(1);
+        }
+
+        if (c_a_after == 0 && !(state.f & F_C)) {
+            printf("failed\n");
+            fprintf(stderr, "expected carry flag to be set\n");
+            exit(1);
+        } else if (c_a_after != 0 && (state.f & F_C)) {
+            printf("failed\n");
+            fprintf(stderr, "expected carry flag to be cleared\n");
+            exit(1);
+        }
+
+        if ((c_a_after & 0x80) && !(state.f & F_S)) {
+            printf("failed\n");
+            fprintf(stderr, "expected sign flag to be set\n");
+            exit(1);
+        } else if (!(c_a_after & 0x80) && (state.f & F_S)) {
+            printf("failed\n");
+            fprintf(stderr, "expected sign flag to be cleared\n");
+            exit(1);
+        }
+    }
+
+    printf("passed\n");
+}
+
 static void fill_alu(uint8_t alu[ALU_ROM_SIZE]) {
     for (uint32_t i = 0; i < ALU_ROM_SIZE; ++i) {
         uint8_t ls = (i >> 0)  & 0xff;
@@ -378,6 +480,17 @@ static uint16_t instr_ld_r8_i8(C r8, uint8_t s) {
     }
 }
 
+static uint16_t instr_ld_r16_i16(C hi_r8, C lo_r8, uint8_t s) {
+    switch (s) {
+    case 1: return OE_MEM | LD_T   | S_C(hi_r8) | SEL_C | LD_C | INC_M;
+    case 2: return OE_T   | LD_MEM |              SEL_M | LD_C;
+    case 3: return OE_MEM | LD_T   | S_C(lo_r8) | SEL_C | LD_C | INC_M;
+    case 4: return OE_T   | LD_MEM |              SEL_M | LD_C;
+    case 5: return OE_C   | C_LD_S;
+    default: return OE_C;
+    }
+}
+
 static uint16_t instr_ld_r8_cf(C r8, bool cf_set, uint8_t s) {
     if (cf_set) {
         switch (s) {
@@ -429,6 +542,84 @@ static uint16_t instr_ld_at_r16_r8(C hi_r8, C lo_r8, C r8, uint8_t s) {
     default:  return OE_C;
     }
 }
+
+static uint16_t instr_ld_r8_at_r16_inc(C r8, C hi_r8, C lo_r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_ALU |          S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x2: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM | S_C(hi_r8)   | SEL_C | LD_C;
+    case 0x4: return OE_MEM | LD_MH  | S_C(lo_r8)   | SEL_C | LD_C;         // MH = mem[hi]
+    case 0x5: return OE_MEM | LD_ML                 | SEL_M | LD_C;         // ML = mem[lo]
+    case 0x6: return OE_MEM | LD_T   | S_C(r8)      | SEL_C | LD_C | INC_M; //  T = mem[M], M++
+    case 0x7: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;         // mem[r8] = T
+    case 0x8: return OE_ALU | LD_T   | S_C(lo_r8)   | SEL_C | LD_C;         // T = ML
+    case 0x9: return OE_T   | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;         // M[lo] = T
+    case 0xa: return OE_ALU | LD_T   | S_C(hi_r8)   | SEL_C | LD_C;         // T = MH
+    case 0xb: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;         // M[hi] = T
+    case 0xc: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xd: return OE_MEM | LD_MH                 | SEL_M | LD_C;
+    case 0xe: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
+static uint16_t instr_ld_at_i16_r8(C r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_MEM | LD_T   | S_C(C_T)     | SEL_C | LD_C | INC_M;
+    case 0x2: return OE_T   | LD_MEM |                SEL_M | LD_C;
+    case 0x3: return OE_MEM | LD_T   | S_C(C_T_ML)  | SEL_C | LD_C | INC_M;
+    case 0x4: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x5: return OE_ALU | LD_MEM | S_C(C_T)     | SEL_C | LD_C;
+    case 0x6: return OE_MEM | LD_MH;                                        //     MH = mem[hi]
+    case 0x7: return OE_T   | LD_ML  | S_C(r8)      | SEL_C | LD_C;         //     ML = mem[lo]
+    case 0x8: return OE_MEM | LD_T   |                SEL_M | LD_C;         //      T = mem[r8]
+    case 0x9: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;         // mem[M] = T
+    case 0xa: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xb: return OE_MEM | LD_MH                 | SEL_M | LD_C;
+    case 0xc: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
+static uint16_t instr_ld_r8_at_i16(C r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_MEM | LD_T   | S_C(C_T)     | SEL_C | LD_C | INC_M;
+    case 0x2: return OE_T   | LD_MEM |                SEL_M | LD_C;
+    case 0x3: return OE_MEM | LD_T   | S_C(C_T_ML)  | SEL_C | LD_C | INC_M;
+    case 0x4: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x5: return OE_ALU | LD_MEM | S_C(C_T)     | SEL_C | LD_C;
+    case 0x6: return OE_MEM | LD_MH;                                        //    MH = mem[hi]
+    case 0x7: return OE_T   | LD_ML                 | SEL_M | LD_C;         //    ML = mem[lo]
+    case 0x8: return OE_MEM | LD_T   | S_C(r8)      | SEL_C | LD_C;         //     T = mem[M]
+    case 0x9: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;         // M[r8] = T
+    case 0xa: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xb: return OE_MEM | LD_MH                 | SEL_M | LD_C;
+    case 0xc: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
+static uint16_t instr_ld_at_r16_inc_r8(C r8, C hi_r8, C lo_r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_ALU |          S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x2: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM | S_C(hi_r8)   | SEL_C | LD_C;
+    case 0x4: return OE_MEM | LD_MH  | S_C(lo_r8)   | SEL_C | LD_C;         // MH = mem[hi]
+    case 0x5: return OE_MEM | LD_ML  | S_C(r8)      | SEL_C | LD_C;         // ML = mem[lo]
+    case 0x6: return OE_MEM | LD_T                  | SEL_M | LD_C;         //  T = mem[r8]
+    case 0x7: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C | INC_M; // mem[M] = T, M++
+    case 0x8: return OE_ALU | LD_T   | S_C(lo_r8)   | SEL_C | LD_C;         // T = ML
+    case 0x9: return OE_T   | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;         // M[lo] = T
+    case 0xa: return OE_ALU | LD_T   | S_C(hi_r8)   | SEL_C | LD_C;         // T = MH
+    case 0xb: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;         // M[hi] = T
+    case 0xc: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xd: return OE_MEM | LD_MH                 | SEL_M | LD_C;
+    case 0xe: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
+
 
 static uint16_t instr_out_port_r8(uint8_t port, C r8, uint8_t s) {
     assert(port < 4);
@@ -878,6 +1069,9 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case O_LD_E_I8: return instr_ld_r8_i8(C_E, s);
     case O_LD_T_I8: return instr_ld_r8_i8(C_T, s);
 
+    case O_LD_BC_I16: return instr_ld_r16_i16(C_B, C_C, s);
+    case O_LD_DE_I16: return instr_ld_r16_i16(C_D, C_E, s);
+
     case O_LD_A_CF: return instr_ld_r8_cf(C_A, f & F_C, s);
 
     case O_LD_A_B: return instr_ld_r8_r8(C_A, C_B, s);
@@ -889,6 +1083,18 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
 
     case O_LD_AT_BC_A: return instr_ld_at_r16_r8(C_B, C_C, C_A, s);
     case O_LD_AT_BC_E: return instr_ld_at_r16_r8(C_B, C_C, C_E, s);
+    case O_LD_AT_DE_A: return instr_ld_at_r16_r8(C_D, C_E, C_A, s);
+
+    case O_LD_AT_I16_A: return instr_ld_at_i16_r8(C_A, s);
+    case O_LD_AT_I16_B: return instr_ld_at_i16_r8(C_B, s);
+
+    case O_LD_B_AT_DE_INC: return instr_ld_r8_at_r16_inc(C_B, C_D, C_E, s);
+    case O_LD_C_AT_DE_INC: return instr_ld_r8_at_r16_inc(C_C, C_D, C_E, s);
+
+    case O_LD_A_AT_I16: return instr_ld_r8_at_i16(C_A, s);
+    case O_LD_B_AT_I16: return instr_ld_r8_at_i16(C_B, s);
+
+    case O_LD_AT_DE_INC_A: return instr_ld_at_r16_inc_r8(C_D, C_E, C_A, s);
 
     case JMP_I16: return instr_jmp_i16(true, s);
     case JZ_I16:  return instr_jmp_i16(f & F_Z, s);
@@ -905,7 +1111,7 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
 
     case DECC_D: return instr_decc_r8(C_D, f & F_C, s);
 
-    case INC_A: return instr_inc_r8(C_A, s);
+    case O_INC_A: return instr_inc_r8(C_A, s);
     case INC_B: return instr_inc_r8(C_B, s);
     case INC_C: return instr_inc_r8(C_C, s);
     case INC_D: return instr_inc_r8(C_D, s);
@@ -1005,6 +1211,9 @@ static const char* customasm_rule_from_opcode(O o) {
     case O_LD_E_I8: return "ld e, {i:i8} => ? @ i";
     case O_LD_T_I8: return "ld t, {i:i8} => ? @ i";
 
+    case O_LD_BC_I16: return "ld bc, {i:i16} => ? @ i";
+    case O_LD_DE_I16: return "ld de, {i:i16} => ? @ i";
+
     case O_LD_A_CF: return "ld a, cf => ?";
 
     case O_LD_A_B: return "ld a, b => ?";
@@ -1016,6 +1225,18 @@ static const char* customasm_rule_from_opcode(O o) {
 
     case O_LD_AT_BC_A: return "ld [bc], a => ?";
     case O_LD_AT_BC_E: return "ld [bc], e => ?";
+    case O_LD_AT_DE_A: return "ld [de], a => ?";
+
+    case O_LD_AT_I16_A: return "ld [{i:i16}], a => ? @ i";
+    case O_LD_AT_I16_B: return "ld [{i:i16}], b => ? @ i";
+
+    case O_LD_AT_DE_INC_A: return "ld [de++], a => ?";
+
+    case O_LD_B_AT_DE_INC: return "ld b, [de++] => ?";
+    case O_LD_C_AT_DE_INC: return "ld c, [de++] => ?";
+
+    case O_LD_A_AT_I16: return "ld a, [{i:i16}] => ? @ i";
+    case O_LD_B_AT_I16: return "ld b, [{i:i16}] => ? @ i";
 
     case JMP_I16: return "jmp {i:i16} => ? @ i";
     case JZ_I16:  return "jz {i:i16} => ? @ i";
@@ -1032,7 +1253,7 @@ static const char* customasm_rule_from_opcode(O o) {
 
     case DECC_D: return "decc d => ?";
 
-    case INC_A: return "inc a => ?";
+    case O_INC_A: return "inc a => ?";
     case INC_B: return "inc b => ?";
     case INC_C: return "inc c => ?";
     case INC_D: return "inc d => ?";
@@ -1287,7 +1508,9 @@ int main(void) {
     uint8_t control[CONTROL_ROM_SIZE];
 
     fill_control(control);
-    // test_instructions
+
+    test_instr_nop(control, alu);
+    test_instr_inc_r8(control, alu);
 
     uint8_t burned_alu[ALU_ROM_SIZE];
 
