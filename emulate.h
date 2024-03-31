@@ -11,11 +11,21 @@ typedef struct {
     uint8_t ml;
     uint8_t mh;
     uint8_t mem[0x10000];
+    uint8_t gpo;
+    uint8_t tx;
+    uint8_t tx_bits;
+    uint8_t rx;
+    uint8_t rx_bits;
+    uint8_t rx_tries;
 } State;
 
 #define IS_LD_O(signals)  (((signals) & S_C0) && !((signals) & LD_C))
 #define IS_LD_S(signals)  (((signals) & S_C1) && !((signals) & LD_C))
 #define IS_LD_IO(signals) (((signals) & S_C2) && !((signals) & LD_C))
+
+#define GPO_MASK_BIT0_TX   0x01 // Held high until start bit
+#define GPO_MASK_BIT1_CTS  0x02 // Active low
+#define GPI_MASK_BIT7_RX   0x80 // High until start bit
 
 static const char* EMULATE_C_REG_NAME[8] = {
     "A   ", // 0x0
@@ -106,9 +116,43 @@ static bool emulate_next_cycle(
 
     if      (oe_mem) data_bus = state->mem[mem_bus];
     else if (oe_t)   data_bus = state->t;
-    else if (oe_io)  data_bus = 0x00; // TODO
     else if (oe_c)   data_bus = (0xf8 * ((state->c >> 2) & 1)) | (state->c & 0x7);
     else if (oe_alu) data_bus = alu[alu_bus];
+    else if (oe_io)  {
+        uint8_t port = (state->c & 1) ? 0 :
+                       (state->c & 2) ? 1 :
+                       (state->c & 4) ? 2 :
+                       (state->c & 8) ? 3 : 0xff;
+
+        if (port == 3) {
+            if (state->rx_bits == 0) {
+                data_bus = GPI_MASK_BIT7_RX;
+                if (state->gpo & GPO_MASK_BIT1_CTS) ++state->rx_tries;
+            } else {
+                if (state->rx_tries < 6) {
+                    // printf("rx_tries: %d\n", state->rx_tries);
+
+                    uint8_t rx_bit = state->rx_bits == 1
+                        ? 0 // start bit
+                        : ((state->rx >> (state->rx_bits - 2)) & 1);
+
+                    // printf("rx bit %d - %d\n", state->rx_bits, rx_bit);
+
+                    data_bus = (uint8_t)(rx_bit << 7); // assumes bit 7 is rx
+
+                    ++state->rx_bits;
+
+                    if (state->rx_bits == 11) {
+                        state->rx_bits = 0;
+                        state->rx_tries = 0;
+                    }
+                }
+            }
+        } else {
+            fprintf(stderr, "oe_oe with port %d not yet supported\n", port);
+            exit(1);
+        }
+    }
 
     int n_oe = (oe_mem ? 1 : 0)
              + (oe_t   ? 1 : 0)
@@ -134,8 +178,48 @@ static bool emulate_next_cycle(
     bool ld_f   = control_signals & LD_F;
     bool ld_c   = control_signals & LD_C;
 
+    if (ld_io)  {
+        uint8_t port = ((~state->c) & 1) ? 0 :
+                       ((~state->c) & 2) ? 1 :
+                       ((~state->c) & 4) ? 2 :
+                       ((~state->c) & 8) ? 3 : 0xff;
+
+        if (port == 3) {
+            uint8_t tx_bit = data_bus & GPO_MASK_BIT0_TX;
+
+            if (state->tx_bits == 0) {
+                if (!tx_bit) {
+                    // printf("start bit detected!\n");
+                    state->tx_bits = 1;
+                    state->tx = 0x00;
+                }
+            } else {
+                if (state->tx_bits < 9) {
+                    uint8_t bit = (uint8_t)(tx_bit << (state->tx_bits - 1));
+                    // printf("%d: tx bit sampled - %d\n", state->tx_bits, tx_bit);
+
+                    state->tx |= bit;
+                    ++state->tx_bits;
+
+                    // if (state->tx_bits == 9) {
+                    //     printf("tx_bits: %d, tx: %c\n", state->tx_bits, state->tx);
+                    // }
+                }
+            }
+
+            state->gpo = data_bus;
+
+            if ((state->gpo & GPO_MASK_BIT1_CTS)) {
+                state->rx_tries = 0;
+            }
+
+        } else {
+            fprintf(stderr, "ld_io with port %d not yet supported, pc: %04x, opcode: %02x\n", port, (uint16_t)(state->mh << 8) | state->ml, state->o);
+            exit(1);
+        }
+    };
+
     if (ld_o)   state->o = data_bus;
-    if (ld_io)  {}; // TODO
     if (ld_ml)  state->ml = data_bus;
     if (ld_mh)  state->mh = data_bus;
     if (ld_t)   state->t  = data_bus;
