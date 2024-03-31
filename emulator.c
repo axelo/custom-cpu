@@ -107,43 +107,31 @@ int main(void) {
 
     printf("starting emulation\n");
 
-    uint8_t recv_buffer[2] = {0};
-    uint8_t send_buffer[2] = {0};
-
     size_t max_cycles = 10000000;
+    uint8_t recv_byte;
 
     for (;;) {
         clock_t start = times(&tms);
 
-        bool print_next_instruction = true;
 
         for (cycles = 0; cycles < max_cycles; ++cycles) {
             // if ((cycles & 63) == 63) usleep(4);
             if ((cycles & 127) == 127) usleep(9);
 
-            if (print_next_instruction) {
-                print_next_instruction = false;
-
-                // printf("%04x: \n", (state.mh << 8) | state.ml);
-                // usleep(1000 * 100);
-            }
-
             bool instr_done = emulate_next_cycle(false, control, alu, &state);
 
             if (instr_done) {
-                print_next_instruction = true;
-
                 if (state.tx_bits == 9) {
                     // printf("sending '%c'\n", state.tx);
-                    send_buffer[0] = state.tx;
-                    send(clientfd, send_buffer, 1, 0);
+
+                    send(clientfd, &state.tx, 1, 0);
 
                     state.tx_bits = 0;
                 }
 
                 if (state.rx_bits == 0 && state.mem[(uint16_t)(state.mh << 8) | state.ml] == 0x04) {
 
-                    ssize_t bytes_read = recv(clientfd, recv_buffer, 1, MSG_PEEK | MSG_DONTWAIT);
+                    ssize_t bytes_read = recv(clientfd, &recv_byte, 1, MSG_PEEK | MSG_DONTWAIT);
 
                     if (bytes_read == 0) {
                         printf("disconnected\n");
@@ -153,17 +141,14 @@ int main(void) {
                         perror("recv failed");
                         exit(1);
                     } else if (bytes_read > 0) {
-
-                        // printf("bytes_read: %ld\n", bytes_read);
-
-                        bytes_read = recv(clientfd, recv_buffer, 1, MSG_DONTWAIT);
+                        bytes_read = recv(clientfd, &recv_byte, 1, MSG_DONTWAIT);
 
                         if (bytes_read < 1) {
                             fprintf(stderr, "expected bytes from recv, got %ld\n", bytes_read);
                             exit(1);
                         }
 
-                        state.rx = recv_buffer[0];
+                        state.rx = recv_byte;
                         state.rx_bits = 1;
 
                         // printf("recv: '%c'\n", state.rx);
