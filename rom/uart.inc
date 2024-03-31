@@ -212,6 +212,8 @@ uart_non_blocking_read_u8:
     call_uart_delay         ; = D + 20 clocks
 
     ; stop bit
+    in a, PORT_GPI
+
     call_uart_delay         ; D clocks
 
     ; set zf
