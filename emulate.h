@@ -144,7 +144,6 @@ static bool emulate_next_cycle(
 
                     if (state->rx_bits == 11) {
                         state->rx_bits = 0;
-                        state->rx_tries = 0;
                     }
                 }
             }
@@ -209,10 +208,9 @@ static bool emulate_next_cycle(
 
             state->gpo = data_bus;
 
-            if ((state->gpo & GPO_MASK_BIT1_CTS)) {
+            if (!(state->gpo & GPO_MASK_BIT1_CTS)) {
                 state->rx_tries = 0;
             }
-
         } else {
             fprintf(stderr, "ld_io with port %d not yet supported, pc: %04x, opcode: %02x\n", port, (uint16_t)(state->mh << 8) | state->ml, state->o);
             exit(1);
