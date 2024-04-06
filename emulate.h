@@ -85,8 +85,6 @@ static bool emulate_next_cycle(
     uint8_t alu[ALU_ROM_SIZE],
     State *state) {
 
-    if (print_debug_info) printf("opcode: %02x\n", state->o);
-
     uint16_t control_address = (uint16_t)((state->f << 12) | (state->s << 8) | state->o);
 
     uint16_t control_signals = (uint16_t)(
@@ -94,9 +92,10 @@ static bool emulate_next_cycle(
              control[control_address]
         ) ^ S_ACTIVE_LOW_MASK;
 
-    if (print_debug_info) emulate_print_control_signals(state->s, control_signals);
-
-    uint8_t data_bus = 0xab;
+    if (print_debug_info) {
+        if (state->s > 0) printf("opcode: %02x - flags: %x\n", state->o, state->f);
+        emulate_print_control_signals(state->s, control_signals);
+    }
 
     uint16_t mem_bus =
         (state->c & 0x8)
@@ -107,6 +106,8 @@ static bool emulate_next_cycle(
         ((state->c & 0x7) << 16) |
                (state->mh << 8)  |
                 state->ml);
+
+    uint8_t data_bus = 0xab;
 
     bool oe_mem = control_signals & OE_MEM;
     bool oe_t   = control_signals & OE_T;
@@ -138,7 +139,7 @@ static bool emulate_next_cycle(
 
                     // printf("rx bit %d - %d\n", state->rx_bits, rx_bit);
 
-                    data_bus = (uint8_t)(rx_bit << 7); // assumes bit 7 is rx
+                    data_bus = (uint8_t)(rx_bit << 7); // assumes bit 7 is rx, and bit 0..6 may be 0
 
                     ++state->rx_bits;
 
@@ -148,7 +149,7 @@ static bool emulate_next_cycle(
                 }
             }
         } else {
-            fprintf(stderr, "oe_oe with port %d not yet supported\n", port);
+            fprintf(stderr, "oe_io with port %d not yet supported\n", port);
             exit(1);
         }
     }
@@ -188,7 +189,7 @@ static bool emulate_next_cycle(
 
             if (state->tx_bits == 0) {
                 if (!tx_bit) {
-                    // printf("start bit detected!\n");
+                    // start bit detected
                     state->tx_bits = 1;
                     state->tx = 0x00;
                 }
@@ -208,9 +209,9 @@ static bool emulate_next_cycle(
 
             state->gpo = data_bus;
 
-            if (!(state->gpo & GPO_MASK_BIT1_CTS)) {
+            if (!(state->gpo & GPO_MASK_BIT1_CTS))
                 state->rx_tries = 0;
-            }
+
         } else {
             fprintf(stderr, "ld_io with port %d not yet supported, pc: %04x, opcode: %02x\n", port, (uint16_t)(state->mh << 8) | state->ml, state->o);
             exit(1);

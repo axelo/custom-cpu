@@ -24,4 +24,4 @@ set -x
 
 clang "${flags[@]}" -o ./build/emulator emulator.c
 
-cd ./build && UBSAN_OPTIONS="halt_on_error=1 report_error_type=1 print_stacktrace=1" ./emulator
+UBSAN_OPTIONS="halt_on_error=1 report_error_type=1 print_stacktrace=1" ./build/emulator "$@"

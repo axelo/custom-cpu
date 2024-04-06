@@ -61,9 +61,12 @@ ld c, 0x00
 
     jmp 0x1000
 
+
 #include "delay.inc"
 
 #include "uart.inc"
+
+#include "string.inc"
 
 #addr 0x1000 - 1
 .boot_end: #d8 0x00

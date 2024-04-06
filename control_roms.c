@@ -28,7 +28,8 @@ typedef enum {
 typedef enum {
     AU_SHR      = 0xfc,
     AU_SHR_F    = 0xfd,
-    AU_MBIT7    = 0xfe,
+    AU_MBIT7    = 0xfe, // TODO: Remove?
+    AU_FLAGS    = 0xff,
     AU_OR_BIT   = 0x40, // 0x40..0x7f
     AU_BOOT_F   = 0x10,
 } AU;
@@ -64,9 +65,10 @@ typedef enum {
     O_LD_D_I8,
     O_LD_E_I8,
     O_LD_T_I8,
-    O_LD_A_CF,
+    O_LD_A_FLAGS,
     O_LD_A_B,
     O_LD_A_D,
+    O_LD_A_E,
     O_LD_B_A,
     O_LD_B_C,
     O_LD_D_A,
@@ -126,6 +128,18 @@ typedef enum {
     O_LD_B_AT_I16,
     O_LD_AT_I16_A,
     O_LD_AT_I16_B,
+    O_SHLC_B,
+    O_SHLC_C,
+    O_SHLC_D,
+    O_SHLC_E,
+    O_DEC_T,
+    O_LD_FLAGS_A,
+    O_ADD_A_I8,
+    O_ADD_B_I8,
+    O_ADD_C_I8,
+    O_LD_B_E,
+    O_LD_C_B,
+    O_DEBUG = 0xfe
 } O;
 
 #define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
@@ -168,6 +182,10 @@ static uint8_t alu_signals(uint8_t ls, uint8_t rs, A op) {
         case AU_MBIT7: {
              return ls & 0x80;
          }
+
+        case AU_FLAGS: {
+            return (ls & 0x07) | F_I;
+        }
 
         case AU_BOOT_F: {
             uint8_t zf = 1; // zf and sf at the same time should never make sense elsewhere.
@@ -254,6 +272,10 @@ static void test_alu(uint8_t alu[ALU_ROM_SIZE]) {
 
             case AU_MBIT7: {
                  assert(q == (ls & 0x80));
+             } break;
+
+            case AU_FLAGS: {
+                 assert(q == ((ls & 0x07) | F_I));
              } break;
 
             case AU_BOOT_F: {
@@ -369,27 +391,28 @@ static uint16_t instr_ld_r16_i16(C hi_r8, C lo_r8, uint8_t s) {
     }
 }
 
-static uint16_t instr_ld_r8_cf(C r8, bool cf_set, uint8_t s) {
-    if (cf_set) {
-        switch (s) {
-        case 1: return OE_C |       S_C(1) | LD_C;
-        case 2: return OE_C | LD_T;
-        case 3: return OE_C |       S_C(r8)  | SEL_C | LD_C;
-        case 4: return OE_T | LD_MEM;
-        case 5: return OE_C |                  SEL_M | LD_C;
-        case 6: return OE_C | S_C(2)/*LD_S*/;
-        default: return OE_C;
-        }
-    } else {
-        switch (s) {
-        case 1: return OE_C |       S_C(0) | LD_C;
-        case 2: return OE_C | LD_T;
-        case 3: return OE_C |       S_C(r8)  | SEL_C | LD_C;
-        case 4: return OE_T | LD_MEM;
-        case 5: return OE_C |                  SEL_M | LD_C;
-        case 6: return OE_C | S_C(2)/*LD_S*/;
-        default: return OE_C;
-        }
+static uint16_t instr_ld_r8_flags(C r8, uint8_t f, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_C   |                   S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x2: return OE_ALU | LD_MEM          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM          | S_C(f)       | SEL_C | LD_C;
+    case 0x4: return OE_C   | LD_ML           | S_C(AU_FLAGS)| SEL_C | LD_C;
+    case 0x5: return OE_C   | LD_MH           | S_C(A_UNARY) | SEL_C | LD_C;
+    case 0x6: return OE_ALU | LD_T            | S_C(r8)      | SEL_C | LD_C;
+    case 0x7: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x8: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x9: return OE_MEM | LD_MH                          | SEL_M | LD_C;
+    case 0xa: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
+static uint16_t instr_ld_flags_r8(C r8, uint8_t s) {
+    switch (s) {
+    case 1: return OE_C   |         S_C(r8) | SEL_C | LD_C;
+    case 2: return OE_MEM | LD_F            | SEL_M | LD_C;
+    case 3: return OE_C   | C_LD_S;
+    default: return OE_C;
     }
 }
 
@@ -477,7 +500,7 @@ static uint16_t instr_ld_r8_at_i16(C r8, uint8_t s) {
     }
 }
 
-static uint16_t instr_ld_at_r16_inc_r8(C r8, C hi_r8, C lo_r8, uint8_t s) {
+static uint16_t instr_ld_at_r16_inc_r8(C hi_r8, C lo_r8, C r8, uint8_t s) {
     switch (s) {
     case 0x1: return OE_ALU |          S_C(C_T_ML)  | SEL_C | LD_C;
     case 0x2: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
@@ -666,6 +689,25 @@ static uint16_t instr_shl_r8(C r8, uint8_t s) {
     }
 }
 
+static uint16_t instr_shlc_r8(C r8, bool cf_set, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_C   |           S_C(cf_set ? 1 : 0)  | SEL_C | LD_C;
+    case 0x2: return OE_C   | LD_T            | S_C(C_T_ML)  | SEL_C | LD_C; // T = carry flag
+    case 0x3: return OE_ALU | LD_MEM          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x4: return OE_ALU | LD_MEM          | S_C(r8)      | SEL_C | LD_C;
+    case 0x5: return OE_MEM | (LD_ML | LD_MH) | S_C(A_ADD_F) | SEL_C | LD_C;
+    case 0x6: return OE_ALU | LD_F            | S_C(A_ADD)   | SEL_C | LD_C;
+    case 0x7: return OE_ALU | LD_ML           | S_C(A_OR)    | SEL_C | LD_C;
+    case 0x8: return OE_T   | LD_MH;
+    case 0x9: return OE_ALU | LD_T            | S_C(r8)      | SEL_C | LD_C;
+    case 0xa: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0xb: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xc: return OE_MEM | LD_MH                          | SEL_M | LD_C;
+    case 0xd: return OE_C   | C_LD_S;
+    default: return OE_C;
+    }
+}
+
 // 13 clocks.
 static uint16_t instr_shr_r8(C r8, uint8_t s) {
     switch (s) {
@@ -798,9 +840,24 @@ static uint16_t instr_add_r8_r8(C dst_r8, C src_r8, uint8_t s) {
     }
 }
 
+static uint16_t instr_add_r8_i8(C r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_MEM | LD_T           | S_C(C_T_ML)  | SEL_C | LD_C | INC_M;
+    case 0x2: return OE_ALU | LD_MEM         | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM         | S_C(r8)      | SEL_C | LD_C;
+    case 0x4: return OE_MEM | LD_ML;
+    case 0x5: return OE_T   | LD_MH          | S_C(A_ADD_F) | SEL_C | LD_C;
+    case 0x6: return OE_ALU | LD_F           | S_C(A_ADD)   | SEL_C | LD_C;
+    case 0x7: return OE_ALU | LD_T           | S_C(r8)      | SEL_C | LD_C;
+    case 0x8: return OE_T   | LD_MEM         | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x9: return OE_MEM | LD_ML          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xa: return OE_MEM | LD_MH                         | SEL_M | LD_C;
+    case 0xb: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
 
 static uint16_t instr_addc_r8_i8(C r8, bool cf_set, uint8_t s) {
-    (void)cf_set;
     switch (s) {
     case 0x1: return OE_MEM | LD_T           | S_C(C_T_ML)  | SEL_C | LD_C | INC_M;
     case 0x2: return OE_ALU | LD_MEM         | S_C(C_T_MH)  | SEL_C | LD_C;
@@ -950,12 +1007,16 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case O_LD_BC_I16: return instr_ld_r16_i16(C_B, C_C, s);
     case O_LD_DE_I16: return instr_ld_r16_i16(C_D, C_E, s);
 
-    case O_LD_A_CF: return instr_ld_r8_cf(C_A, f & F_C, s);
+    case O_LD_A_FLAGS: return instr_ld_r8_flags(C_A, f, s);
+    case O_LD_FLAGS_A: return instr_ld_flags_r8(C_A, s);
 
     case O_LD_A_B: return instr_ld_r8_r8(C_A, C_B, s);
     case O_LD_A_D: return instr_ld_r8_r8(C_A, C_D, s);
+    case O_LD_A_E: return instr_ld_r8_r8(C_A, C_E, s);
     case O_LD_B_A: return instr_ld_r8_r8(C_B, C_A, s);
+    case O_LD_B_E: return instr_ld_r8_r8(C_B, C_E, s);
     case O_LD_B_C: return instr_ld_r8_r8(C_B, C_C, s);
+    case O_LD_C_B: return instr_ld_r8_r8(C_C, C_B, s);
     case O_LD_D_A: return instr_ld_r8_r8(C_D, C_A, s);
     case O_LD_E_A: return instr_ld_r8_r8(C_E, C_A, s);
 
@@ -986,6 +1047,7 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case DEC_C: return instr_dec_r8(C_C, s);
     case DEC_D: return instr_dec_r8(C_D, s);
     case DEC_E: return instr_dec_r8(C_E, s);
+    case O_DEC_T: return instr_dec_r8(C_T, s);
 
     case DECC_D: return instr_decc_r8(C_D, f & F_C, s);
 
@@ -999,6 +1061,11 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case SHL_A: return instr_shl_r8(C_A, s);
     case SHL_B: return instr_shl_r8(C_B, s);
 
+    case O_SHLC_B: return instr_shlc_r8(C_B, f & F_C, s);
+    case O_SHLC_C: return instr_shlc_r8(C_C, f & F_C, s);
+    case O_SHLC_D: return instr_shlc_r8(C_D, f & F_C, s);
+    case O_SHLC_E: return instr_shlc_r8(C_E, f & F_C, s);
+
     case SHR_A: return instr_shr_r8(C_A, s);
     case SHR_B: return instr_shr_r8(C_B, s);
 
@@ -1006,6 +1073,10 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
 
     case O_OR_A_I8: return instr_or_r8_i8(C_A, s);
     case O_OR_A_CF: return instr_or_r8_cf(C_A, f & F_C, s);
+
+    case O_ADD_A_I8: return instr_add_r8_i8(C_A, s);
+    case O_ADD_B_I8: return instr_add_r8_i8(C_B, s);
+    case O_ADD_C_I8: return instr_add_r8_i8(C_C, s);
 
     case O_ADD_B_A: return instr_add_r8_r8(C_B, C_A, s);
 
@@ -1032,6 +1103,8 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
 
     case O_LD_A_WBIT_B_RBIT_END: return instr_ld_r8_wbit_r8_rbit_end(C_A, C_B, s);
     case O_LD_B_WBIT_A_RBIT_END: return instr_ld_r8_wbit_r8_rbit_end(C_B, C_A, s);
+
+    case O_DEBUG: return OE_C | C_LD_S;
 
     default: break;
     }
@@ -1092,12 +1165,16 @@ static const char* customasm_rule_from_opcode(O o) {
     case O_LD_BC_I16: return "ld bc, {i:i16} => ? @ i";
     case O_LD_DE_I16: return "ld de, {i:i16} => ? @ i";
 
-    case O_LD_A_CF: return "ld a, cf => ?";
+    case O_LD_A_FLAGS: return "ld a, flags => ?";
+    case O_LD_FLAGS_A: return "ld flags, a => ?";
 
     case O_LD_A_B: return "ld a, b => ?";
     case O_LD_A_D: return "ld a, d => ?";
+    case O_LD_A_E: return "ld a, e => ?";
     case O_LD_B_A: return "ld b, a => ?";
     case O_LD_B_C: return "ld b, c => ?";
+    case O_LD_C_B: return "ld c, b => ?";
+    case O_LD_B_E: return "ld b, e => ?";
     case O_LD_D_A: return "ld d, a => ?";
     case O_LD_E_A: return "ld e, a => ?";
 
@@ -1128,6 +1205,7 @@ static const char* customasm_rule_from_opcode(O o) {
     case DEC_C: return "dec c => ?";
     case DEC_D: return "dec d => ?";
     case DEC_E: return "dec e => ?";
+    case O_DEC_T: return "dec t => ?";
 
     case DECC_D: return "decc d => ?";
 
@@ -1141,6 +1219,11 @@ static const char* customasm_rule_from_opcode(O o) {
     case SHL_A: return "shl a => ?";
     case SHL_B: return "shl b => ?";
 
+    case O_SHLC_B: return "shlc b => ?";
+    case O_SHLC_C: return "shlc c => ?";
+    case O_SHLC_D: return "shlc d => ?";
+    case O_SHLC_E: return "shlc e => ?";
+
     case SHR_A: return "shr a => ?";
     case SHR_B: return "shr b => ?";
 
@@ -1148,6 +1231,10 @@ static const char* customasm_rule_from_opcode(O o) {
 
     case O_OR_A_I8: return "or a, {i: i8} => ? @ i";
     case O_OR_A_CF: return "or a, cf => ?";
+
+    case O_ADD_A_I8: return "add a, {i:i8} => ? @ i";
+    case O_ADD_B_I8: return "add b, {i:i8} => ? @ i";
+    case O_ADD_C_I8: return "add c, {i:i8} => ? @ i";
 
     case O_ADD_B_A: return "add b, a => ?";
 
@@ -1174,6 +1261,8 @@ static const char* customasm_rule_from_opcode(O o) {
 
     case O_LD_A_WBIT_B_RBIT_END: return NULL;
     case O_LD_B_WBIT_A_RBIT_END: return NULL;
+
+    case O_DEBUG: return "debug => ?";
 
     default: return NULL;
     }

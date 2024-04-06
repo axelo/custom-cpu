@@ -17,3 +17,6 @@ customasm -q -o build/programs/gpo_sweep.bin programs/gpo_sweep.asm
 
 customasm -q -o build/programs/blink.bin programs/blink.asm
 ./build/prepend_size build/programs/blink.bin
+
+customasm -q -o build/programs/string.bin programs/string.asm
+./build/prepend_size build/programs/string.bin
