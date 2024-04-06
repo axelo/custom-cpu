@@ -1,13 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-
+#include <string.h> // memcpy
 #include <unistd.h>  // sysconf
 #include <sys/times.h> // times
-
 #include <netinet/in.h> // socket
 
 #include "emulate.h"
+
+#define PROGRAM_START 0x1000
+#define PROGRAM_SIZE (0x10000 - PROGRAM_START)
 
 static void print_state(State *state) {
     printf(" o: %02x\n", state->o);
@@ -16,7 +18,17 @@ static void print_state(State *state) {
     printf("ml: %02x\n", state->ml);
     printf("mh: %02x\n", state->mh);
     printf(" f: %x\n", state->f);
+    printf("zf: %x\n", state->f & F_Z ? 1 : 0);
+    printf("cf: %x\n", state->f & F_C ? 1 : 0);
     printf(" c: %x\n", state->c);
+    printf("ra: %02x\n", state->mem[0xfff0 | 0]);
+    printf("rb: %02x\n", state->mem[0xfff0 | 1]);
+    printf("rc: %02x\n", state->mem[0xfff0 | 2]);
+    printf("rd: %02x\n", state->mem[0xfff0 | 3]);
+    printf("re: %02x\n", state->mem[0xfff0 | 4]);
+    printf("rt: %02x\n", state->mem[0xfff0 | 5]);
+
+    printf("\n");
 
     /*for (int i = 0; i < 0x1000; ++i) {
         printf("%02x ", state.mem[i]);
@@ -44,25 +56,54 @@ static bool read_rom(const char *filepath, size_t rom_size, uint8_t rom[rom_size
     return true;
 }
 
-int main(void) {
+static size_t read_program(const char *filepath, uint8_t program[PROGRAM_SIZE]) {
+    FILE *file = fopen(filepath, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open program %s\n", filepath);
+        return 0;
+    }
+
+    size_t read_bytes = fread(program, sizeof(program[0]), PROGRAM_SIZE, file);
+    fclose(file);
+
+    return read_bytes;
+}
+
+int main(int argc, char **argv) {
     uint8_t control[CONTROL_ROM_SIZE];
     uint8_t alu[ALU_ROM_SIZE];
 
-    if (!read_rom("./custom-cpu_control.bin", CONTROL_ROM_SIZE, control) ||
-        !read_rom("./custom-cpu_alu.bin",     ALU_ROM_SIZE,     alu)) return 1;
+    if (!read_rom("./build/custom-cpu_control.bin", CONTROL_ROM_SIZE, control) ||
+        !read_rom("./build/custom-cpu_alu.bin",     ALU_ROM_SIZE,     alu)) return 1;
 
     State state = {0};
 
-    size_t cycles = 0;
-
     printf("running init\n");
 
+    size_t cycles = 0;
     for (; !(state.f & F_I); ++cycles)
         emulate_next_cycle(false, control, alu, &state);
 
     printf("init done after %zd cycles\n", cycles);
 
     print_state(&state);
+
+    if (argc > 1) {
+        uint8_t program[PROGRAM_SIZE];
+        size_t program_size = read_program(argv[1], program);
+
+        if (program_size == 0) return 1;
+
+        // jmp {i:i16} => 0x1c @ i;
+        state.mem[0] = 0x1c;
+        state.mem[1] = PROGRAM_START >> 8;
+        state.mem[2] = PROGRAM_START & 0xff;
+
+        memcpy(state.mem + PROGRAM_START, program, program_size);
+
+        printf("boot program skipped, running %s (%ld) directly\n", argv[1], program_size);
+    }
 
     struct tms tms;
     double freq = (double)sysconf(_SC_CLK_TCK);
@@ -113,14 +154,18 @@ int main(void) {
     for (;;) {
         clock_t start = times(&tms);
 
-
         for (cycles = 0; cycles < max_cycles; ++cycles) {
             // if ((cycles & 63) == 63) usleep(4);
-            if ((cycles & 127) == 127) usleep(9);
+            if ((cycles & 127) == 127) usleep(8);
 
             bool instr_done = emulate_next_cycle(false, control, alu, &state);
 
             if (instr_done) {
+                if (state.o == 0xfe) {
+                    print_state(&state);
+                    getchar();
+                }
+
                 if (state.tx_bits == 9) {
                     // printf("sending '%c'\n", state.tx);
 
@@ -133,19 +178,12 @@ int main(void) {
 
                     ssize_t bytes_read = recv(clientfd, &recv_byte, 1, MSG_PEEK | MSG_DONTWAIT);
 
-                    if (bytes_read == 0) {
-                        printf("disconnected\n");
-                        exit(1);
-                    }
-                    else if (bytes_read < -1) {
-                        perror("recv failed");
-                        exit(1);
-                    } else if (bytes_read > 0) {
+                    if (bytes_read > 0) {
                         bytes_read = recv(clientfd, &recv_byte, 1, MSG_DONTWAIT);
 
                         if (bytes_read < 1) {
                             fprintf(stderr, "expected bytes from recv, got %ld\n", bytes_read);
-                            exit(1);
+                            goto done;
                         }
 
                         state.rx = recv_byte;
@@ -158,9 +196,15 @@ int main(void) {
         }
 
         clock_t end = times(&tms);
-        printf("elapsed ticks: %lu, elapsed seconds: %5.2f s\n", end - start, (double)(end - start) / freq);
-    }
 
+        if (recv(clientfd, &recv_byte, 1, MSG_PEEK | MSG_DONTWAIT) == 0) {
+            perror("disconnected");
+            break;
+        }
+
+        if (false) printf("elapsed ticks: %lu, elapsed seconds: %5.2f s\n", end - start, (double)(end - start) / freq);
+    }
+done:
     printf("done\n");
 
     printf("closing Serial connection\n");

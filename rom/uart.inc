@@ -370,3 +370,20 @@ uart_write_u8:
 
     ret               ; 16 clocks
                       ; = D + 16 clocks
+
+
+uart_write_n_string:
+;   modifies: GPO, a, de
+;     params:
+;       b: u8 to send
+;       de: n string start address
+
+    ld c, [de++] ; n u8 to write, 0 means 256.
+.next_u8:
+    ld b, [de++]
+    call uart_write_u8
+
+    dec c
+    jnz .next_u8
+
+    ret
