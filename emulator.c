@@ -7,11 +7,12 @@
 #include <netinet/in.h> // socket
 
 #include "emulate.h"
+#include "opcodes.h"
 
 #define PROGRAM_START 0x1000
 #define PROGRAM_SIZE (0x10000 - PROGRAM_START)
 
-static void print_state(State *state) {
+static void print_state(State *state, uint16_t address, uint16_t n) {
     printf(" o: %02x\n", state->o);
     printf(" s: %02x\n", state->s);
     printf(" t: %02x\n", state->t);
@@ -30,11 +31,12 @@ static void print_state(State *state) {
 
     printf("\n");
 
-    /*for (int i = 0; i < 0x1000; ++i) {
-        printf("%02x ", state.mem[i]);
-        if ((i & 15) == 15) printf("\n");
+    for (int i = address; i < (address + n); i += 16) {
+        printf("\n%04x: ", i & 0xffff);
+        for (int j = i; j < (i + 16); ++j) {
+            printf("%02x ", state->mem[j & 0xffff]);
+        }
     }
-    printf("\n");*/
 }
 
 static bool read_rom(const char *filepath, size_t rom_size, uint8_t rom[rom_size]) {
@@ -87,7 +89,7 @@ int main(int argc, char **argv) {
 
     printf("init done after %zd cycles\n", cycles);
 
-    print_state(&state);
+    print_state(&state, 0, 0);
 
     if (argc > 1) {
         uint8_t program[PROGRAM_SIZE];
@@ -96,7 +98,7 @@ int main(int argc, char **argv) {
         if (program_size == 0) return 1;
 
         // jmp {i:i16} => 0x1c @ i;
-        state.mem[0] = 0x1c;
+        state.mem[0] = O_JMP_I16;
         state.mem[1] = PROGRAM_START >> 8;
         state.mem[2] = PROGRAM_START & 0xff;
 
@@ -161,8 +163,16 @@ int main(int argc, char **argv) {
             bool instr_done = emulate_next_cycle(false, control, alu, &state);
 
             if (instr_done) {
-                if (state.o == 0xfe) {
-                    print_state(&state);
+                if (state.o == O_DEBUG_I16_N) {
+                    uint16_t pc = (uint16_t)(state.mh << 8) | state.ml;
+                    uint16_t address = (uint16_t)((state.mem[pc - 4] << 8) | state.mem[pc - 3]);
+                    uint16_t n = (uint16_t)(state.mem[pc - 2] << 8) | state.mem[pc - 1];
+
+                    print_state(&state, address, n);
+                    getchar();
+                }
+                else if (state.o == O_DEBUG) {
+                    print_state(&state, 0, 0);
                     getchar();
                 }
 

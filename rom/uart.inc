@@ -373,7 +373,7 @@ uart_write_u8:
 
 
 uart_write_n_string:
-;   modifies: GPO, a, de
+;   modifies: GPO, a, c, de
 ;     params:
 ;       b: u8 to send
 ;       de: n string start address
@@ -386,4 +386,24 @@ uart_write_n_string:
     dec c
     jnz .next_u8
 
+    ret
+
+
+uart_write_z_string:
+;   modifies: GPO, a, b, de
+;     params:
+;       de:zn string start address
+
+    ld b, [de++]
+    testz b
+    jz .zero
+
+.next_u8:
+    call uart_write_u8
+
+    ld b, [de++]
+    testz b
+    jnz .next_u8
+
+.zero:
     ret
