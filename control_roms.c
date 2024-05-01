@@ -15,7 +15,7 @@
 #define S_OE_IO_C(port) ((uint16_t)(((1 << port) & 0xf) << 12))
 #define S_LD_IO_C(port) ((uint16_t)((~(1 << port) & 0xf) << 12))
 
-#define S0_FETCH (OE_MEM | C_LD_S | INC_M)
+#define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
 
 typedef enum {
     A_BOOT   = 0,
