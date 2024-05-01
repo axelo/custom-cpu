@@ -15,6 +15,8 @@
 #define S_OE_IO_C(port) ((uint16_t)(((1 << port) & 0xf) << 12))
 #define S_LD_IO_C(port) ((uint16_t)((~(1 << port) & 0xf) << 12))
 
+#define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
+
 typedef enum {
     A_BOOT   = 0,
     A_ADD    = 1,
@@ -44,8 +46,6 @@ typedef enum {
     C_T_ML = A_LS,
     C_T_MH = A_RS,
 } C;
-
-#define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
 
 static uint8_t alu_signals(uint8_t ls, uint8_t rs, A op) {
     switch ((A)op) {
@@ -219,12 +219,12 @@ static void fill_alu(uint8_t alu[ALU_ROM_SIZE]) {
 
 static void fill_alu_boot_rom(uint8_t alu[ALU_ROM_SIZE], uint8_t boot_rom[BOOT_ROM_SIZE]) {
     for (uint32_t i = 0; i < BOOT_ROM_SIZE; ++i) {
-        // alu[(A_BOOT << 16) | i] = i & 0xff;
-        alu[(A_BOOT << 16) | i] = boot_rom[i]; // Assumes rs:ls is the first 16 bits.
+        // Assumes rs:ls (MH:ML) is the first 16 bits of the rom address.
+        alu[(A_BOOT << 16) | i] = boot_rom[i];
     }
 }
 
-// Requires power on rest on F and S.
+// Requires power on reset on F and S.
 static uint16_t control_init_signals(uint8_t s, uint8_t f) {
     if (!(f & F_Z)) {
         switch (s) {
@@ -232,7 +232,7 @@ static uint16_t control_init_signals(uint8_t s, uint8_t f) {
         case 0x1: return OE_C  | S_C(0) | SEL_M | LD_C;
         case 0x2: return OE_C  | LD_ML | LD_MH;
         case 0x3: return OE_C  | S_C(1) | LD_C;
-        case 0x4: return OE_C  | LD_F  | S_C(2 /*LD_S*/);
+        case 0x4: return OE_C  | LD_F  | C_LD_S;
         default:  return OE_C;
         }
     } else {
@@ -262,7 +262,7 @@ static uint16_t control_init_signals(uint8_t s, uint8_t f) {
             // Remaining steps will continue from the NOP instruction.
             default: return OE_C;
             }
-        } else return OE_C | S_C(2 /*LD_S*/);
+        } else return OE_C | C_LD_S;
     }
 }
 
@@ -318,7 +318,7 @@ static uint16_t instr_ld_r8_r8(C dst_r8, C src_r8, uint8_t s) {
     case 3: return OE_C   |       S_C(dst_r8) | SEL_C | LD_C;
     case 4: return OE_T   | LD_MEM;
     case 5: return OE_C   |                     SEL_M | LD_C;
-    case 6: return OE_C   | S_C(2)/*LD_S*/;
+    case 6: return OE_C   | C_LD_S;
     default: return OE_C;
     }
 }
@@ -334,7 +334,7 @@ static uint16_t instr_ld_at_r16_r8(C hi_r8, C lo_r8, C r8, uint8_t s) {
     case 0x7: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0x8: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0x9: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xa: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xa: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -437,56 +437,54 @@ static uint16_t instr_ld_at_r16_inc_i8(C hi_r8, C lo_r8, uint8_t s) {
 static uint16_t instr_out_port_r8(uint8_t port, C r8, uint8_t s) {
     assert(port < 4);
     switch (s) {
-    case 1: return OE_C   |        S_C(r8)   | SEL_C | LD_C; // C = r8, M -> C
-    case 2: return OE_MEM | LD_T | S_LD_IO_C(port)    | LD_C; // T = mem[C], C = port
-    case 3: return OE_T   | S_C(4)/*LD_IO*/;               // io[C] = T
-    case 4: return OE_C   |                    SEL_M | LD_C;
-    case 5: return OE_C   | S_C(2)/*LD_S*/;
-    default: return OE_C;
+    case 0x1: return OE_C   |        S_C(r8)   | SEL_C | LD_C; // C = r8, M -> C
+    case 0x2: return OE_MEM | LD_T | S_LD_IO_C(port)   | LD_C; // T = mem[C], C = port
+    case 0x3: return OE_T   | S_C(4)/*LD_IO*/;                 // io[C] = T
+    case 0x4: return OE_C   |                    SEL_M | LD_C;
+    case 0x5: return OE_C   | C_LD_S;
+    default:  return OE_C;
     }
 }
 
 static uint16_t instr_out_port_i8(uint8_t port, uint8_t s) {
     assert(port < 4);
     switch (s) {
-    case 1: return OE_MEM | LD_T           | S_LD_IO_C(port) | LD_C | INC_M; // T = mem[PC++], C = port
-    case 2: return OE_T   | S_C(4 /*LD_IO*/);                      // io[C] = T
-    case 3: return OE_C   |                            SEL_M | LD_C;
-    case 4: return OE_C   | S_C(2 /*LD_S*/);
-    default: return OE_C;
+    case 0x1: return OE_MEM | LD_T           | S_LD_IO_C(port) | LD_C | INC_M; // T = mem[PC++], C = port
+    case 0x2: return OE_T   | S_C(4 /*LD_IO*/);                                // io[C] = T
+    case 0x3: return OE_C   |                            SEL_M | LD_C;
+    case 0x4: return OE_C   | C_LD_S;
+    default:  return OE_C;
     }
 }
 
 static uint16_t instr_in_r8_port(C r8, uint8_t port, uint8_t s) {
     assert(port < 4);
     switch (s) {
-    case 1: return OE_C  |          S_OE_IO_C(port)    | LD_C; // C = port
-    case 2: return OE_IO | LD_T   | S_C(r8)   | SEL_C | LD_C; // T = io[C], C = A, M -> C
-    case 3: return OE_T  | LD_MEM;
-    case 4: return OE_C                       | SEL_M | LD_C; // mem[C] = T
-    case 5: return OE_C | S_C(2)/*LD_S*/;
-    default: return OE_C;
+    case 0x1: return OE_C  |          S_OE_IO_C(port)   | LD_C; // C = port
+    case 0x2: return OE_IO | LD_T   | S_C(r8)   | SEL_C | LD_C; // T = io[C], C = A, M -> C
+    case 0x3: return OE_T  | LD_MEM;                            // TODO: Merge with step above
+    case 0x4: return OE_C                       | SEL_M | LD_C; // mem[C] = T
+    case 0x5: return OE_C  | C_LD_S;
+    default:  return OE_C;
     }
 }
 
 static uint16_t instr_jmp_i16(bool jump, uint8_t s) {
     if (jump) {
         switch (s) {
-        case 1: return OE_MEM | LD_T;
-        case 2: return OE_C   | INC_M;
-        case 3: return OE_MEM | LD_ML;
-        case 4: return OE_T   | LD_MH;
-        case 5: return OE_C   | S_C(2)/*LD_S*/;
-
-        default: return OE_C;
+        case 0x1: return OE_MEM | LD_T;
+        case 0x2: return OE_C   | INC_M;
+        case 0x3: return OE_MEM | LD_ML;
+        case 0x4: return OE_T   | LD_MH;
+        case 0x5: return OE_C   | C_LD_S;
+        default:  return OE_C;
         }
     } else {
         switch (s) {
-        case 1: return OE_C | INC_M;
-        case 2: return OE_C | INC_M;
-        case 3: return OE_C   | S_C(2)/*LD_S*/;
-
-        default: return OE_C;
+        case 0x1: return OE_C | INC_M;
+        case 0x2: return OE_C | INC_M;
+        case 0x3: return OE_C | C_LD_S;
+        default:  return OE_C;
         }
     }
 }
@@ -504,9 +502,8 @@ static uint16_t instr_dec_r8(C r8, uint8_t s) {
     case 0x9: return OE_C            | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xb: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xc: return OE_C   | S_C(2)/*LD_S*/;
-
-    default: return OE_C;
+    case 0xc: return OE_C   | C_LD_S;
+    default:  return OE_C;
     }
 }
 
@@ -518,11 +515,11 @@ static uint16_t instr_decc_r8(C r8, bool cf_set, uint8_t s) {
         case 0x3: return OE_ALU | LD_MEM | S_C(r8)      | SEL_C | LD_C;
         case 0x4: return OE_MEM | LD_ML  | S_C(7)       | SEL_C | LD_C;
         case 0x5: return OE_C   | LD_MH  | S_C(A_ADD_F) | SEL_C | LD_C;
-        default: break;
+        default:  break;
         }
     } else {
         switch (s) {
-        case 0x1: return OE_C   | S_C(2)/*LD_S*/;
+        case 0x1: return OE_C   | C_LD_S;
         default:  break;
         }
     }
@@ -533,7 +530,7 @@ static uint16_t instr_decc_r8(C r8, bool cf_set, uint8_t s) {
     case 0x8: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0x9: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xb: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xb: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -551,8 +548,8 @@ static uint16_t instr_inc_r8(C r8, uint8_t s) {
     case 0x9: return OE_C            | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xb: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xc: return OE_C | S_C(2)/*LD_S*/;
-    default: return OE_C;
+    case 0xc: return OE_C   | C_LD_S;
+    default:  return OE_C;
     }
 }
 
@@ -564,11 +561,11 @@ static uint16_t instr_incc_r8(C r8, bool cf_set, uint8_t s) {
         case 0x3: return OE_ALU | LD_MEM | S_C(r8)      | SEL_C | LD_C;
         case 0x4: return OE_MEM | LD_ML  | S_C(1)       | SEL_C | LD_C;
         case 0x5: return OE_C   | LD_MH  | S_C(A_ADD_F) | SEL_C | LD_C;
-        default: break;
+        default:  break;
         }
     } else {
         switch (s) {
-        case 0x1: return OE_C   | S_C(2)/*LD_S*/;
+        case 0x1: return OE_C   | C_LD_S;
         default:  break;
         }
     }
@@ -579,7 +576,7 @@ static uint16_t instr_incc_r8(C r8, bool cf_set, uint8_t s) {
     case 0x8: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0x9: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    case 0xb: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xb: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -597,7 +594,7 @@ static uint16_t instr_shl_r8(C r8, uint8_t s) {
     case 0x8: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0x9: return OE_MEM | LD_MH                          | SEL_M | LD_C;
     case 0xa: return OE_C   | C_LD_S;
-    default: return OE_C;
+    default:  return OE_C;
     }
 }
 
@@ -616,7 +613,7 @@ static uint16_t instr_shlc_r8(C r8, bool cf_set, uint8_t s) {
     case 0xb: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xc: return OE_MEM | LD_MH                          | SEL_M | LD_C;
     case 0xd: return OE_C   | C_LD_S;
-    default: return OE_C;
+    default:  return OE_C;
     }
 }
 
@@ -635,7 +632,7 @@ static uint16_t instr_shr_r8(C r8, uint8_t s) {
     case 0xa: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xb: return OE_MEM | LD_MH                 | SEL_M | LD_C;
     case 0xc: return OE_C   | C_LD_S;
-    default: return OE_C;
+    default:  return OE_C;
     }
 }
 
@@ -731,7 +728,7 @@ static uint16_t instr_or_r8_cf(C r8, bool cf_set, uint8_t s) {
         case 0x9: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
         case 0xa: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
         case 0xb: return OE_MEM | LD_MH                          | SEL_M | LD_C;
-        case 0xc: return OE_C   | S_C(2)/*LD_S*/;
+        case 0xc: return OE_C   | C_LD_S;
         default:  return OE_C;
         }
     } else {
@@ -747,7 +744,7 @@ static uint16_t instr_or_r8_cf(C r8, bool cf_set, uint8_t s) {
         case 0x9: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
         case 0xa: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
         case 0xb: return OE_MEM | LD_MH                          | SEL_M | LD_C;
-        case 0xc: return OE_C   | S_C(2)/*LD_S*/;
+        case 0xc: return OE_C   | C_LD_S;
         default:  return OE_C;
         }
     }
@@ -765,7 +762,7 @@ static uint16_t instr_add_r8_r8(C dst_r8, C src_r8, uint8_t s) {
     case 0x8: return OE_T   | LD_MEM         | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0x9: return OE_MEM | LD_ML          | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_MH                         | SEL_M | LD_C;
-    case 0xb: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xb: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -814,7 +811,7 @@ static uint16_t instr_addc_r8_i8(C r8, bool cf_set, uint8_t s) {
     case 0x8: return OE_T   | LD_MEM         | S_C(C_T_ML)  | SEL_C | LD_C;
     case 0x9: return OE_MEM | LD_ML          | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_MH                         | SEL_M | LD_C;
-    case 0xb: return OE_C   | S_C(2)/*LD_S*/;
+    case 0xb: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -851,7 +848,7 @@ static uint16_t instr_push_r8(C r8, uint8_t s) {
     case 0xc: return OE_C   |          S_C(C_T_ML)  | SEL_C | LD_C;
     case 0xd: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xe: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    default: return OE_C;
+    default:  return OE_C;
     }
 }
 
@@ -861,7 +858,7 @@ static uint16_t instr_call_i16_begin(uint8_t s) {
     case 0x2: return OE_T   | LD_MEM          |               SEL_M | LD_C | INC_M;
     case 0x3: return OE_MEM | LD_T            | S_C(C_T_ML) | SEL_C | LD_C;
     case 0x4: return OE_T   | LD_MEM                        | SEL_M | LD_C | INC_M;
-    case 0x5: return OE_C   | S_C(2)/*LD_S*/;
+    case 0x5: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -904,14 +901,14 @@ static uint16_t instr_ret(uint8_t s) {
     case 0xc: return OE_T   | LD_MEM           | S_C(C_T_ML) | SEL_C | LD_C; // mem[SP] = T
     case 0xd: return OE_MEM | LD_ML            | S_C(C_T_MH) | SEL_C | LD_C;
     case 0xe: return OE_MEM | LD_MH                          | SEL_M | LD_C;
-    default: return OE_C;
+    default:  return OE_C;
     }
 }
 
 static uint16_t instr_nop2(uint8_t s) {
     switch (s) {
-    case 0x1: return OE_C | S_C(2)/*LD_S*/;
-    default: return OE_C;
+    case 0x1: return OE_C | C_LD_S;
+    default:  return OE_C;
     }
 }
 
@@ -932,7 +929,7 @@ static uint16_t instr_pop_r8(C r8, uint8_t s) {
     case 0xd: return OE_C   |          S_C(C_T_ML)  | SEL_C | LD_C;
     case 0xe: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xf: return OE_MEM | LD_MH                 | SEL_M | LD_C;
-    default: return OE_C;
+    default:  return OE_C;
     }
 }
 
@@ -1003,11 +1000,11 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
 
     case O_LD_AT_DE_INC_I8: return instr_ld_at_r16_inc_i8(C_D, C_E, s);
 
-    case O_JMP_I16:   return instr_jmp_i16(true, s);
-    case O_JZ_I16:    return instr_jmp_i16(f & F_Z, s);
-    case O_JNZ_I16:   return instr_jmp_i16(!(f & F_Z), s);
-    case O_JC_I16:    return instr_jmp_i16(f & F_C, s);
-    case O_JNC_I16:   return instr_jmp_i16(!(f & F_C), s);
+    case O_JMP_I16: return instr_jmp_i16(true, s);
+    case O_JZ_I16:  return instr_jmp_i16(f & F_Z, s);
+    case O_JNZ_I16: return instr_jmp_i16(!(f & F_Z), s);
+    case O_JC_I16:  return instr_jmp_i16(f & F_C, s);
+    case O_JNC_I16: return instr_jmp_i16(!(f & F_C), s);
     case O_JS_I16:  return instr_jmp_i16(f & F_S, s);
     case O_JBE_I16: return instr_jmp_i16((f & F_Z) || !(f & F_C), s);
     case O_JAE_I16: return instr_jmp_i16((f & F_Z) || (f & F_C), s);
@@ -1308,7 +1305,7 @@ static void write_customasm(const char *filename_prefix, const char *link_path, 
     char contents[4096*2];
 
     const char *start = ""
-"PROGRAM_START_ADDRESS = 0x1000\n"
+"PROGRAM_START_ADDRESS = 0x1000\n" // TODO: Define 0x1000
 "\n"
 "#bankdef ram {\n"
 "    #bits     8\n"

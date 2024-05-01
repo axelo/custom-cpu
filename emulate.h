@@ -218,7 +218,7 @@ static bool emulate_next_cycle(
         }
     };
 
-    if (ld_o)   state->o = data_bus;
+    if (ld_o)   state->o  = data_bus;
     if (ld_ml)  state->ml = data_bus;
     if (ld_mh)  state->mh = data_bus;
     if (ld_t)   state->t  = data_bus;
