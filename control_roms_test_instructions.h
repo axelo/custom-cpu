@@ -315,6 +315,141 @@ static void test_instr_shlc_r8(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[AL
     printf("passed\n");
 }
 
+static void test_instr_or_r8_r8(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[ALU_ROM_SIZE], O opcocde, C r8_dest, C r8_src) {
+    printf("%-32s", customasm_rule_from_opcode(opcocde));
+
+    State state = {0};
+    state.f = F_I;
+
+    for (int value_dest = 0x00; value_dest < 0x100; ++value_dest) {
+    for (int value_src = 0x00; value_src < 0x100; ++value_src) {
+        uint16_t pc = ((uint16_t)(state.mh << 8) | state.ml);
+        state.mem[pc] = (uint8_t)opcocde;
+
+        state.mem[0xfff0 | r8_dest] = (uint8_t)value_dest;
+        state.mem[0xfff0 | r8_src] = (uint8_t)value_src;
+
+        uint16_t pc_expected  = (uint16_t)(pc + 1);
+        uint8_t dest_r8_expected = (uint8_t)(value_dest | value_src);
+
+        for (int step = 1; step < 20; ++step)
+            if (emulate_next_cycle(false, control, alu, &state)) break;
+
+        uint16_t pc_after = (uint16_t)(state.mh << 8) | state.ml;
+        uint8_t dest_r8_actual = state.mem[0xfff0 | r8_dest];
+        uint8_t src_r8_actual = state.mem[0xfff0 | r8_src];
+
+        if (pc_after != pc_expected) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected pc, got %04x, expected %04x\n", pc_after, pc_expected);
+            exit(1);
+        }
+
+        if (src_r8_actual != value_src) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected src value, got %02x, expected %02x\n", src_r8_actual, value_src);
+            exit(1);
+        }
+
+        if (dest_r8_actual != dest_r8_expected) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected dest value, got %02x, expected %02x\n", dest_r8_actual, dest_r8_expected);
+            exit(1);
+        }
+
+        if (dest_r8_actual == 0 && !(state.f & F_Z)) {
+            printf("failed\n");
+            fprintf(stderr, "expected zero flag to be set\n");
+            exit(1);
+        } else if (dest_r8_actual != 0 && (state.f & F_Z)) {
+            printf("failed\n");
+            fprintf(stderr, "expected zero flag to be cleared\n");
+            exit(1);
+        }
+
+        if (state.f & F_C) {
+            printf("failed\n");
+            fprintf(stderr, "expected carry flag to be cleared\n");
+            exit(1);
+        }
+
+        if ((dest_r8_actual & 0x80) && !(state.f & F_S)) {
+            printf("failed\n");
+            fprintf(stderr, "expected sign flag to be set\n");
+            exit(1);
+        } else if (!(dest_r8_actual & 0x80) && (state.f & F_S)) {
+            printf("failed\n");
+            fprintf(stderr, "expected sign flag to be cleared\n");
+            exit(1);
+        }
+    }
+    }
+
+    printf("passed\n");
+}
+
+static void test_instr_testz_r8(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[ALU_ROM_SIZE], O opcocde, C r8) {
+    printf("%-32s", customasm_rule_from_opcode(opcocde));
+
+    State state = {0};
+    state.f = F_I;
+
+    for (int value_src = 0x00; value_src < 0x100; ++value_src) {
+        uint16_t pc = ((uint16_t)(state.mh << 8) | state.ml);
+        state.mem[pc] = (uint8_t)opcocde;
+
+        state.mem[0xfff0 | r8] = (uint8_t)value_src;
+
+        uint16_t pc_expected  = (uint16_t)(pc + 1);
+
+        for (int step = 1; step < 20; ++step)
+            if (emulate_next_cycle(false, control, alu, &state)) break;
+
+        uint16_t pc_after = (uint16_t)(state.mh << 8) | state.ml;
+        uint8_t r8_actual = state.mem[0xfff0 | r8];
+
+        if (pc_after != pc_expected) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected pc, got %04x, expected %04x\n", pc_after, pc_expected);
+            exit(1);
+        }
+
+        if (r8_actual != value_src) {
+            printf("failed\n");
+            fprintf(stderr, "unexpected src value, got %02x, expected %02x\n", r8_actual, value_src);
+            exit(1);
+        }
+
+        if (r8_actual == 0 && !(state.f & F_Z)) {
+            printf("failed\n");
+            fprintf(stderr, "expected zero flag to be set\n");
+            exit(1);
+        } else if (r8_actual != 0 && (state.f & F_Z)) {
+            printf("failed\n");
+            fprintf(stderr, "expected zero flag to be cleared\n");
+            exit(1);
+        }
+
+        if (state.f & F_C) {
+            printf("failed\n");
+            fprintf(stderr, "expected carry flag to be cleared\n");
+            exit(1);
+        }
+
+        if ((r8_actual & 0x80) && !(state.f & F_S)) {
+            printf("failed\n");
+            fprintf(stderr, "expected sign flag to be set\n");
+            exit(1);
+        } else if (!(r8_actual & 0x80) && (state.f & F_S)) {
+            printf("failed\n");
+            fprintf(stderr, "expected sign flag to be cleared\n");
+            exit(1);
+        }
+    }
+
+    printf("passed\n");
+}
+
 static void test_instructions(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[ALU_ROM_SIZE]) {
     test_instr_nop(control, alu);
     test_instr_inc_r8(control, alu, O_INC_A, C_A);
@@ -329,4 +464,6 @@ static void test_instructions(uint8_t control[CONTROL_ROM_SIZE], uint8_t alu[ALU
     test_instr_shlc_r8(control, alu, O_SHLC_C, C_C);
     test_instr_shlc_r8(control, alu, O_SHLC_D, C_D);
     test_instr_shlc_r8(control, alu, O_SHLC_E, C_E);
+    test_instr_or_r8_r8(control, alu, O_OR_A_B, C_A, C_B);
+    test_instr_testz_r8(control, alu, O_TESTZ_B, C_B);
 }

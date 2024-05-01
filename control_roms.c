@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "control_roms.h"
+#include "opcodes.h"
 
 #define C_LD_S S_C(2 /*LD_S*/)
 
@@ -28,7 +29,6 @@ typedef enum {
 typedef enum {
     AU_SHR      = 0xfc,
     AU_SHR_F    = 0xfd,
-    AU_MBIT7    = 0xfe, // TODO: Remove?
     AU_FLAGS    = 0xff,
     AU_OR_BIT   = 0x40, // 0x40..0x7f
     AU_BOOT_F   = 0x10,
@@ -44,103 +44,6 @@ typedef enum {
     C_T_ML = A_LS,
     C_T_MH = A_RS,
 } C;
-
-typedef enum {
-    O_NOP = 0x00,
-    O_IN_A_0,
-    O_IN_A_1,
-    O_IN_A_2,
-    O_IN_A_3,
-    O_OUT_0_A,
-    O_OUT_1_A,
-    O_OUT_2_A,
-    O_OUT_3_A,
-    O_OUT_0_I8,
-    O_OUT_1_I8,
-    O_OUT_2_I8,
-    O_OUT_3_I8,
-    O_LD_A_I8,
-    O_LD_B_I8,
-    O_LD_C_I8,
-    O_LD_D_I8,
-    O_LD_E_I8,
-    O_LD_T_I8,
-    O_LD_A_FLAGS,
-    O_LD_A_B,
-    O_LD_A_D,
-    O_LD_A_E,
-    O_LD_B_A,
-    O_LD_B_C,
-    O_LD_D_A,
-    O_LD_E_A,
-    O_LD_AT_BC_A,
-    O_LD_AT_BC_E,
-    JMP_I16,
-    JZ_I16,
-    JNZ_I16,
-    JC_I16,
-    JNC_I16,
-    O_JS_I16,
-    DEC_A,
-    DEC_B,
-    DEC_C,
-    DEC_D,
-    DEC_E,
-    DECC_D,
-    O_INC_A,
-    O_INC_B,
-    O_INC_C,
-    O_INC_D,
-    INCC_B,
-    SHL_A,
-    SHL_B,
-    SHR_A,
-    SHR_B,
-    O_AND_A_I8,
-    O_OR_A_I8,
-    O_OR_A_CF,
-    O_ADD_B_A,
-    O_ADDC_B_I8,
-    O_ADDC_D_I8,
-    PUSH_A,
-    PUSH_B,
-    PUSH_C,
-    PUSH_D,
-    PUSH_E,
-    POP_A,
-    POP_B,
-    POP_C,
-    POP_D,
-    POP_E,
-    CALL_I16_BEGIN,
-    CALL_I16_END,
-    RET,
-    O_NOP2,
-    O_LD_A_WBIT_B_RBIT_END,
-    O_LD_B_WBIT_A_RBIT_END,
-    O_LD_B_AT_DE_INC,
-    O_LD_C_AT_DE_INC,
-    O_LD_BC_I16,
-    O_LD_DE_I16,
-    O_LD_AT_DE_INC_A,
-    O_LD_AT_DE_A,
-    O_LD_A_AT_I16,
-    O_LD_B_AT_I16,
-    O_LD_AT_I16_A,
-    O_LD_AT_I16_B,
-    O_SHLC_B,
-    O_SHLC_C,
-    O_SHLC_D,
-    O_SHLC_E,
-    O_DEC_T,
-    O_LD_FLAGS_A,
-    O_ADD_A_I8,
-    O_ADD_B_I8,
-    O_ADD_C_I8,
-    O_LD_B_E,
-    O_LD_C_B,
-    O_DEBUG = 0xfe
-} O;
 
 #define S0_FETCH (OE_MEM | S_C(1 /*LD_O*/) | INC_M)
 
@@ -178,10 +81,6 @@ static uint8_t alu_signals(uint8_t ls, uint8_t rs, A op) {
 
             return (uint8_t)((initf << 3) | (sf << 2) | (cf << 1) | (zf << 0));
         }
-
-        case AU_MBIT7: {
-             return ls & 0x80;
-         }
 
         case AU_FLAGS: {
             return (ls & 0x07) | F_I;
@@ -269,10 +168,6 @@ static void test_alu(uint8_t alu[ALU_ROM_SIZE]) {
                 assert(((ls >> 1) & 0x80) ? sf : !sf);
                 assert(initf == 1);
             } break;
-
-            case AU_MBIT7: {
-                 assert(q == (ls & 0x80));
-             } break;
 
             case AU_FLAGS: {
                  assert(q == ((ls & 0x07) | F_I));
@@ -520,7 +415,24 @@ static uint16_t instr_ld_at_r16_inc_r8(C hi_r8, C lo_r8, C r8, uint8_t s) {
     }
 }
 
-
+static uint16_t instr_ld_at_r16_inc_i8(C hi_r8, C lo_r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_MEM | LD_T   | S_C(C_T_ML)  | SEL_C | LD_C | INC_M; //  T = i8
+    case 0x2: return OE_ALU | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM | S_C(hi_r8)   | SEL_C | LD_C;
+    case 0x4: return OE_MEM | LD_MH  | S_C(lo_r8)   | SEL_C | LD_C;         // MH = mem[hi]
+    case 0x5: return OE_MEM | LD_ML                 | SEL_M | LD_C;         // ML = mem[lo]
+    case 0x6: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C | INC_M; // mem[M] = T, M++
+    case 0x7: return OE_ALU | LD_T   | S_C(lo_r8)   | SEL_C | LD_C;         // T = ML
+    case 0x8: return OE_T   | LD_MEM | S_C(C_T_MH)  | SEL_C | LD_C;         // M[lo] = T
+    case 0x9: return OE_ALU | LD_T   | S_C(hi_r8)   | SEL_C | LD_C;         // T = MH
+    case 0xa: return OE_T   | LD_MEM | S_C(C_T_ML)  | SEL_C | LD_C;         // M[hi] = T
+    case 0xb: return OE_MEM | LD_ML  | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xc: return OE_MEM | LD_MH                 | SEL_M | LD_C;
+    case 0xd: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
 
 static uint16_t instr_out_port_r8(uint8_t port, C r8, uint8_t s) {
     assert(port < 4);
@@ -787,6 +699,24 @@ static uint16_t instr_or_r8_i8(C r8, uint8_t s) {
     }
 }
 
+static uint16_t instr_or_r8_r8(C r8_dest, C r8_src, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_C                     | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x2: return OE_ALU | LD_MEM          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM          | S_C(r8_src)  | SEL_C | LD_C;
+    case 0x4: return OE_MEM | LD_ML           | S_C(r8_dest) | SEL_C | LD_C;
+    case 0x5: return OE_MEM | LD_MH           | S_C(A_OR)    | SEL_C | LD_C;
+    case 0x6: return OE_ALU | (LD_T | LD_ML)  | S_C(0)       | SEL_C | LD_C; // T, ML = ML or MH
+    case 0x7: return OE_C   | LD_MH           | S_C(A_ADD_F) | SEL_C | LD_C; // MH = 0
+    case 0x8: return OE_ALU | LD_F            | S_C(r8_dest) | SEL_C | LD_C; // ALU = (ML or MH) + 0 (flags)
+    case 0x9: return OE_T   | LD_MEM          | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0xa: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0xb: return OE_MEM | LD_MH                          | SEL_M | LD_C;
+    case 0xc: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
 static uint16_t instr_or_r8_cf(C r8, bool cf_set, uint8_t s) {
     if (cf_set) {
         switch (s) {
@@ -857,6 +787,21 @@ static uint16_t instr_add_r8_i8(C r8, uint8_t s) {
     }
 }
 
+static uint16_t instr_cmp_r8_i8(C r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_MEM | LD_T           | S_C(C_T_ML)  | SEL_C | LD_C | INC_M;
+    case 0x2: return OE_ALU | LD_MEM         | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM         | S_C(r8)      | SEL_C | LD_C;
+    case 0x4: return OE_MEM | LD_ML;
+    case 0x5: return OE_T   | LD_MH          | S_C(A_ADD_F) | SEL_C | LD_C;
+    case 0x6: return OE_ALU | LD_F           | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x7: return OE_MEM | LD_ML          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x8: return OE_MEM | LD_MH                         | SEL_M | LD_C;
+    case 0x9: return OE_C   | C_LD_S;
+    default:  return OE_C;
+    }
+}
+
 static uint16_t instr_addc_r8_i8(C r8, bool cf_set, uint8_t s) {
     switch (s) {
     case 0x1: return OE_MEM | LD_T           | S_C(C_T_ML)  | SEL_C | LD_C | INC_M;
@@ -870,6 +815,22 @@ static uint16_t instr_addc_r8_i8(C r8, bool cf_set, uint8_t s) {
     case 0x9: return OE_MEM | LD_ML          | S_C(C_T_MH)  | SEL_C | LD_C;
     case 0xa: return OE_MEM | LD_MH                         | SEL_M | LD_C;
     case 0xb: return OE_C   | S_C(2)/*LD_S*/;
+    default:  return OE_C;
+    }
+}
+
+static uint16_t instr_testz_r8(C r8, uint8_t s) {
+    switch (s) {
+    case 0x1: return OE_C                     | S_C(C_T_ML)  | SEL_C | LD_C;
+    case 0x2: return OE_ALU | LD_MEM          | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x3: return OE_ALU | LD_MEM          | S_C(r8)      | SEL_C | LD_C;
+    case 0x4: return OE_MEM | (LD_ML | LD_MH) | S_C(A_OR)    | SEL_C | LD_C;
+    case 0x5: return OE_ALU | (LD_T | LD_ML)  | S_C(0)       | SEL_C | LD_C; // T, ML = ML or MH
+    case 0x6: return OE_C   | LD_MH           | S_C(A_ADD_F) | SEL_C | LD_C; // MH = 0
+    case 0x7: return OE_ALU | LD_F            | S_C(C_T_ML)  | SEL_C | LD_C; // F  = 0 + (ML or MH)
+    case 0x8: return OE_MEM | LD_ML           | S_C(C_T_MH)  | SEL_C | LD_C;
+    case 0x9: return OE_MEM | LD_MH                          | SEL_M | LD_C;
+    case 0xa: return OE_C   | C_LD_S;
     default:  return OE_C;
     }
 }
@@ -1011,14 +972,17 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case O_LD_FLAGS_A: return instr_ld_flags_r8(C_A, s);
 
     case O_LD_A_B: return instr_ld_r8_r8(C_A, C_B, s);
+    case O_LD_A_C: return instr_ld_r8_r8(C_A, C_C, s);
     case O_LD_A_D: return instr_ld_r8_r8(C_A, C_D, s);
     case O_LD_A_E: return instr_ld_r8_r8(C_A, C_E, s);
     case O_LD_B_A: return instr_ld_r8_r8(C_B, C_A, s);
     case O_LD_B_E: return instr_ld_r8_r8(C_B, C_E, s);
     case O_LD_B_C: return instr_ld_r8_r8(C_B, C_C, s);
+    case O_LD_C_A: return instr_ld_r8_r8(C_C, C_A, s);
     case O_LD_C_B: return instr_ld_r8_r8(C_C, C_B, s);
     case O_LD_D_A: return instr_ld_r8_r8(C_D, C_A, s);
     case O_LD_E_A: return instr_ld_r8_r8(C_E, C_A, s);
+    case O_LD_E_B: return instr_ld_r8_r8(C_E, C_B, s);
 
     case O_LD_AT_BC_A: return instr_ld_at_r16_r8(C_B, C_C, C_A, s);
     case O_LD_AT_BC_E: return instr_ld_at_r16_r8(C_B, C_C, C_E, s);
@@ -1026,78 +990,98 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
 
     case O_LD_AT_I16_A: return instr_ld_at_i16_r8(C_A, s);
     case O_LD_AT_I16_B: return instr_ld_at_i16_r8(C_B, s);
+    case O_LD_AT_I16_C: return instr_ld_at_i16_r8(C_C, s);
 
     case O_LD_B_AT_DE_INC: return instr_ld_r8_at_r16_inc(C_B, C_D, C_E, s);
     case O_LD_C_AT_DE_INC: return instr_ld_r8_at_r16_inc(C_C, C_D, C_E, s);
 
     case O_LD_A_AT_I16: return instr_ld_r8_at_i16(C_A, s);
     case O_LD_B_AT_I16: return instr_ld_r8_at_i16(C_B, s);
+    case O_LD_C_AT_I16: return instr_ld_r8_at_i16(C_C, s);
 
-    case O_LD_AT_DE_INC_A: return instr_ld_at_r16_inc_r8(C_D, C_E, C_A, s);
+    case O_LD_AT_DE_INC_A:  return instr_ld_at_r16_inc_r8(C_D, C_E, C_A, s);
 
-    case JMP_I16: return instr_jmp_i16(true, s);
-    case JZ_I16:  return instr_jmp_i16(f & F_Z, s);
-    case JNZ_I16: return instr_jmp_i16(!(f & F_Z), s);
-    case JC_I16:  return instr_jmp_i16(f & F_C, s);
-    case JNC_I16: return instr_jmp_i16(!(f & F_C), s);
-    case O_JS_I16: return instr_jmp_i16(f & F_S, s);
+    case O_LD_AT_DE_INC_I8: return instr_ld_at_r16_inc_i8(C_D, C_E, s);
 
-    case DEC_A: return instr_dec_r8(C_A, s);
-    case DEC_B: return instr_dec_r8(C_B, s);
-    case DEC_C: return instr_dec_r8(C_C, s);
-    case DEC_D: return instr_dec_r8(C_D, s);
-    case DEC_E: return instr_dec_r8(C_E, s);
+    case O_JMP_I16:   return instr_jmp_i16(true, s);
+    case O_JZ_I16:    return instr_jmp_i16(f & F_Z, s);
+    case O_JNZ_I16:   return instr_jmp_i16(!(f & F_Z), s);
+    case O_JC_I16:    return instr_jmp_i16(f & F_C, s);
+    case O_JNC_I16:   return instr_jmp_i16(!(f & F_C), s);
+    case O_JS_I16:  return instr_jmp_i16(f & F_S, s);
+    case O_JBE_I16: return instr_jmp_i16((f & F_Z) || !(f & F_C), s);
+    case O_JAE_I16: return instr_jmp_i16((f & F_Z) || (f & F_C), s);
+
+    case O_DEC_A: return instr_dec_r8(C_A, s);
+    case O_DEC_B: return instr_dec_r8(C_B, s);
+    case O_DEC_C: return instr_dec_r8(C_C, s);
+    case O_DEC_D: return instr_dec_r8(C_D, s);
+    case O_DEC_E: return instr_dec_r8(C_E, s);
     case O_DEC_T: return instr_dec_r8(C_T, s);
 
-    case DECC_D: return instr_decc_r8(C_D, f & F_C, s);
+    case O_DECC_D: return instr_decc_r8(C_D, f & F_C, s);
 
     case O_INC_A: return instr_inc_r8(C_A, s);
     case O_INC_B: return instr_inc_r8(C_B, s);
     case O_INC_C: return instr_inc_r8(C_C, s);
     case O_INC_D: return instr_inc_r8(C_D, s);
 
-    case INCC_B: return instr_incc_r8(C_B, f & F_C, s);
+    case O_INCC_B: return instr_incc_r8(C_B, f & F_C, s);
 
-    case SHL_A: return instr_shl_r8(C_A, s);
-    case SHL_B: return instr_shl_r8(C_B, s);
+    case O_SHL_A: return instr_shl_r8(C_A, s);
+    case O_SHL_B: return instr_shl_r8(C_B, s);
+    case O_SHL_E: return instr_shl_r8(C_E, s);
 
     case O_SHLC_B: return instr_shlc_r8(C_B, f & F_C, s);
     case O_SHLC_C: return instr_shlc_r8(C_C, f & F_C, s);
     case O_SHLC_D: return instr_shlc_r8(C_D, f & F_C, s);
     case O_SHLC_E: return instr_shlc_r8(C_E, f & F_C, s);
 
-    case SHR_A: return instr_shr_r8(C_A, s);
-    case SHR_B: return instr_shr_r8(C_B, s);
+    case O_SHR_A: return instr_shr_r8(C_A, s);
+    case O_SHR_B: return instr_shr_r8(C_B, s);
 
     case O_AND_A_I8: return instr_and_r8_i8(C_A, s);
 
     case O_OR_A_I8: return instr_or_r8_i8(C_A, s);
+
+    case O_OR_A_B: return instr_or_r8_r8(C_A, C_B, s);
+
     case O_OR_A_CF: return instr_or_r8_cf(C_A, f & F_C, s);
 
     case O_ADD_A_I8: return instr_add_r8_i8(C_A, s);
     case O_ADD_B_I8: return instr_add_r8_i8(C_B, s);
     case O_ADD_C_I8: return instr_add_r8_i8(C_C, s);
+    case O_ADD_E_I8: return instr_add_r8_i8(C_E, s);
 
+    case O_CMP_A_I8: return instr_cmp_r8_i8(C_A, s);
+    case O_CMP_B_I8: return instr_cmp_r8_i8(C_B, s);
+    case O_CMP_C_I8: return instr_cmp_r8_i8(C_C, s);
+
+    case O_ADD_A_B: return instr_add_r8_r8(C_A, C_B, s);
     case O_ADD_B_A: return instr_add_r8_r8(C_B, C_A, s);
+    case O_ADD_B_C: return instr_add_r8_r8(C_B, C_C, s);
+    case O_ADD_E_A: return instr_add_r8_r8(C_E, C_A, s);
 
     case O_ADDC_B_I8: return instr_addc_r8_i8(C_B, f & F_C, s);
     case O_ADDC_D_I8: return instr_addc_r8_i8(C_D, f & F_C, s);
 
-    case PUSH_A: return instr_push_r8(C_A, s);
-    case PUSH_B: return instr_push_r8(C_B, s);
-    case PUSH_C: return instr_push_r8(C_C, s);
-    case PUSH_D: return instr_push_r8(C_D, s);
-    case PUSH_E: return instr_push_r8(C_E, s);
+    case O_TESTZ_B: return instr_testz_r8(C_B, s);
 
-    case POP_A: return instr_pop_r8(C_A, s);
-    case POP_B: return instr_pop_r8(C_B, s);
-    case POP_C: return instr_pop_r8(C_C, s);
-    case POP_D: return instr_pop_r8(C_D, s);
-    case POP_E: return instr_pop_r8(C_E, s);
+    case O_PUSH_A: return instr_push_r8(C_A, s);
+    case O_PUSH_B: return instr_push_r8(C_B, s);
+    case O_PUSH_C: return instr_push_r8(C_C, s);
+    case O_PUSH_D: return instr_push_r8(C_D, s);
+    case O_PUSH_E: return instr_push_r8(C_E, s);
 
-    case CALL_I16_BEGIN: return instr_call_i16_begin(s);
-    case CALL_I16_END:   return instr_call_i16_end(s);
-    case RET:            return instr_ret(s);
+    case O_POP_A: return instr_pop_r8(C_A, s);
+    case O_POP_B: return instr_pop_r8(C_B, s);
+    case O_POP_C: return instr_pop_r8(C_C, s);
+    case O_POP_D: return instr_pop_r8(C_D, s);
+    case O_POP_E: return instr_pop_r8(C_E, s);
+
+    case O_CALL_I16_BEGIN: return instr_call_i16_begin(s);
+    case O_CALL_I16_END:   return instr_call_i16_end(s);
+    case O_RET:            return instr_ret(s);
 
     case O_NOP2: return instr_nop2(s);
 
@@ -1105,6 +1089,14 @@ static uint16_t control_signals(uint8_t s, uint8_t f, uint8_t o) {
     case O_LD_B_WBIT_A_RBIT_END: return instr_ld_r8_wbit_r8_rbit_end(C_B, C_A, s);
 
     case O_DEBUG: return OE_C | C_LD_S;
+    case O_DEBUG_I16_N: {
+        switch (s) {
+        case 1: return OE_C | INC_M;
+        case 2: return OE_C | INC_M;
+        case 3: return OE_C | INC_M;
+        case 4: return OE_C | INC_M | C_LD_S;
+        }
+    };
 
     default: break;
     }
@@ -1149,7 +1141,6 @@ static const char* customasm_rule_from_opcode(O o) {
     case O_OUT_2_A: return NULL;
     case O_OUT_3_A: return NULL;
 
-
     case O_OUT_0_I8: return "out {p: u3}, {i:i8} => (? + p)`8 @ i";
     case O_OUT_1_I8: return NULL;
     case O_OUT_2_I8: return NULL;
@@ -1169,14 +1160,17 @@ static const char* customasm_rule_from_opcode(O o) {
     case O_LD_FLAGS_A: return "ld flags, a => ?";
 
     case O_LD_A_B: return "ld a, b => ?";
+    case O_LD_A_C: return "ld a, c => ?";
     case O_LD_A_D: return "ld a, d => ?";
     case O_LD_A_E: return "ld a, e => ?";
     case O_LD_B_A: return "ld b, a => ?";
     case O_LD_B_C: return "ld b, c => ?";
+    case O_LD_C_A: return "ld c, a => ?";
     case O_LD_C_B: return "ld c, b => ?";
     case O_LD_B_E: return "ld b, e => ?";
     case O_LD_D_A: return "ld d, a => ?";
     case O_LD_E_A: return "ld e, a => ?";
+    case O_LD_E_B: return "ld e, b => ?";
 
     case O_LD_AT_BC_A: return "ld [bc], a => ?";
     case O_LD_AT_BC_E: return "ld [bc], e => ?";
@@ -1184,85 +1178,106 @@ static const char* customasm_rule_from_opcode(O o) {
 
     case O_LD_AT_I16_A: return "ld [{i:i16}], a => ? @ i";
     case O_LD_AT_I16_B: return "ld [{i:i16}], b => ? @ i";
+    case O_LD_AT_I16_C: return "ld [{i:i16}], c => ? @ i";
 
     case O_LD_AT_DE_INC_A: return "ld [de++], a => ?";
+
+    case O_LD_AT_DE_INC_I8: return "ld [de++], {i: i8} => ? @ i";
 
     case O_LD_B_AT_DE_INC: return "ld b, [de++] => ?";
     case O_LD_C_AT_DE_INC: return "ld c, [de++] => ?";
 
     case O_LD_A_AT_I16: return "ld a, [{i:i16}] => ? @ i";
     case O_LD_B_AT_I16: return "ld b, [{i:i16}] => ? @ i";
+    case O_LD_C_AT_I16: return "ld c, [{i:i16}] => ? @ i";
 
-    case JMP_I16: return "jmp {i:i16} => ? @ i";
-    case JZ_I16:  return "jz {i:i16} => ? @ i";
-    case JNZ_I16: return "jnz {i:i16} => ? @ i";
-    case JC_I16:  return "jc {i:i16} => ? @ i";
-    case JNC_I16: return "jnc {i:i16} => ? @ i";
-    case O_JS_I16: return "js {i:i16} => ? @ i";
+    case O_JMP_I16:   return "jmp {i:i16} => ? @ i";
+    case O_JZ_I16:    return "jz {i:i16} => ? @ i";
+    case O_JNZ_I16:   return "jnz {i:i16} => ? @ i";
+    case O_JC_I16:    return "jc {i:i16} => ? @ i";
+    case O_JNC_I16:   return "jnc {i:i16} => ? @ i";
+    case O_JS_I16:  return "js {i:i16} => ? @ i";
+    case O_JBE_I16: return "jbe {i:i16} => ? @ i";
+    case O_JAE_I16: return "jae {i:i16} => ? @ i";
 
-    case DEC_A: return "dec a => ?";
-    case DEC_B: return "dec b => ?";
-    case DEC_C: return "dec c => ?";
-    case DEC_D: return "dec d => ?";
-    case DEC_E: return "dec e => ?";
+    case O_DEC_A: return "dec a => ?";
+    case O_DEC_B: return "dec b => ?";
+    case O_DEC_C: return "dec c => ?";
+    case O_DEC_D: return "dec d => ?";
+    case O_DEC_E: return "dec e => ?";
     case O_DEC_T: return "dec t => ?";
 
-    case DECC_D: return "decc d => ?";
+    case O_DECC_D: return "decc d => ?";
 
     case O_INC_A: return "inc a => ?";
     case O_INC_B: return "inc b => ?";
     case O_INC_C: return "inc c => ?";
     case O_INC_D: return "inc d => ?";
 
-    case INCC_B: return "incc b => ?";
+    case O_INCC_B: return "incc b => ?";
 
-    case SHL_A: return "shl a => ?";
-    case SHL_B: return "shl b => ?";
+    case O_SHL_A: return "shl a => ?";
+    case O_SHL_B: return "shl b => ?";
+    case O_SHL_E: return "shl e => ?";
 
     case O_SHLC_B: return "shlc b => ?";
     case O_SHLC_C: return "shlc c => ?";
     case O_SHLC_D: return "shlc d => ?";
     case O_SHLC_E: return "shlc e => ?";
 
-    case SHR_A: return "shr a => ?";
-    case SHR_B: return "shr b => ?";
+    case O_SHR_A: return "shr a => ?";
+    case O_SHR_B: return "shr b => ?";
 
     case O_AND_A_I8: return "and a, {i: i8} => ? @ i";
 
     case O_OR_A_I8: return "or a, {i: i8} => ? @ i";
+
+    case O_OR_A_B: return "or a, b => ?";
+
     case O_OR_A_CF: return "or a, cf => ?";
 
     case O_ADD_A_I8: return "add a, {i:i8} => ? @ i";
     case O_ADD_B_I8: return "add b, {i:i8} => ? @ i";
     case O_ADD_C_I8: return "add c, {i:i8} => ? @ i";
+    case O_ADD_E_I8: return "add e, {i:i8} => ? @ i";
 
+    case O_CMP_A_I8: return "cmp a, {i:i8} => ? @ (0 - i)`8";
+    case O_CMP_B_I8: return "cmp b, {i:i8} => ? @ (0 - i)`8";
+    case O_CMP_C_I8: return "cmp c, {i:i8} => ? @ (0 - i)`8";
+
+    case O_ADD_A_B: return "add a, b => ?";
     case O_ADD_B_A: return "add b, a => ?";
+    case O_ADD_B_C: return "add b, c => ?";
+    case O_ADD_E_A: return "add e, a => ?";
 
     case O_ADDC_B_I8: return "addc b, {i:i8} => ? @ i";
     case O_ADDC_D_I8: return "addc d, {i:i8} => ? @ i";
 
-    case PUSH_A: return "push a => ?";
-    case PUSH_B: return "push b => ?";
-    case PUSH_C: return "push c => ?";
-    case PUSH_D: return "push d => ?";
-    case PUSH_E: return "push e => ?";
+    case O_TESTZ_B: return "testz b => ?";
 
-    case POP_A: return "pop a => ?";
-    case POP_B: return "pop b => ?";
-    case POP_C: return "pop c => ?";
-    case POP_D: return "pop d => ?";
-    case POP_E: return "pop e => ?";
+    case O_PUSH_A: return "push a => ?";
+    case O_PUSH_B: return "push b => ?";
+    case O_PUSH_C: return "push c => ?";
+    case O_PUSH_D: return "push d => ?";
+    case O_PUSH_E: return "push e => ?";
 
-    case CALL_I16_BEGIN: return NULL;
-    case CALL_I16_END:   return NULL;
-    case RET:            return "ret => ?";
+    case O_POP_A: return "pop a => ?";
+    case O_POP_B: return "pop b => ?";
+    case O_POP_C: return "pop c => ?";
+    case O_POP_D: return "pop d => ?";
+    case O_POP_E: return "pop e => ?";
+
+    case O_CALL_I16_BEGIN: return NULL;
+    case O_CALL_I16_END:   return NULL;
+    case O_RET:            return "ret => ?";
 
     case O_NOP2: return "nop2 => ?";
 
     case O_LD_A_WBIT_B_RBIT_END: return NULL;
     case O_LD_B_WBIT_A_RBIT_END: return NULL;
 
-    case O_DEBUG: return "debug => ?";
+    case O_DEBUG:       return "debug => ?";
+    case O_DEBUG_I16_N: return "debug {i:i16}, {n:i16} => ? @ i @ n";
 
     default: return NULL;
     }
@@ -1278,7 +1293,7 @@ static void combined_customasm_rules(int n, char buffer[n]) {
         "}\n";
 
     int slength = snprintf(buffer, n, customasm_combined_rules,
-        CALL_I16_BEGIN, CALL_I16_END,
+        O_CALL_I16_BEGIN, O_CALL_I16_END,
         O_LD_T_I8, O_LD_A_WBIT_B_RBIT_END, AU_OR_BIT,
         O_LD_T_I8, O_LD_B_WBIT_A_RBIT_END, AU_OR_BIT
     );

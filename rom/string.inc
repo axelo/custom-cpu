@@ -7,6 +7,7 @@ u8_to_n_string_zero_padded:
     ld a, 3
     ld [de++], a
 
+u8_to_append_string_zero_padded:
     ld a, 0xff
 .fits100:
     inc a
@@ -28,6 +29,6 @@ u8_to_n_string_zero_padded:
 
     add b, 10 + "0"
     ld a, b
-    ld [de], a
+    ld [de++], a
 
     ret
