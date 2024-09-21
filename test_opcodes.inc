@@ -194,7 +194,6 @@ static bool test_opcodes_ld_r8_at_at_i16(int r8, int permutation, char *buffer, 
     return false;
 }
 
-
 static bool test_opcodes_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
     srand((uint32_t)(permutation + 19));
 
@@ -225,6 +224,52 @@ static bool test_opcodes_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffe
 
     if (r8_value != at_i16) {
         sprintf(buffer + strlen(buffer), "expected r8 (%d) to be 0x%02x, is 0x%02x\n", r8, at_i16, r8_value);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_opcodes_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    srand((uint32_t)(permutation + 19));
+
+    uint8_t r8 = (uint8_t)(r8_r16_h >> 4);
+    uint8_t r16_h = r8_r16_h & 0xf;
+
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+    uint8_t at_i16 = rand() & 0xff;
+
+    if (after == NULL) {
+        before->mem[0xfff0 | r16_h] = i16 >> 8;
+        before->mem[0xfff0 | (r16_h + 1)] = i16 & 0xff;
+
+        before->mem[i16] = at_i16;
+
+        sprintf(buffer + strlen(buffer), "i 0x%04x", i16);
+        return permutation >= 0xff;
+    }
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    uint8_t r8_value = after->mem[0xfff0 | r8];
+
+    if (r8_value != at_i16) {
+        sprintf(buffer + strlen(buffer), "expected r8 (%d) to be 0x%02x, is 0x%02x\n", r8, at_i16, r8_value);
+        return true;
+    }
+
+    uint16_t r16_before_value = (uint16_t)(before->mem[0xfff0 | r16_h] << 8) | before->mem[0xfff0 | (r16_h + 1)];
+
+    uint16_t expected_r16_value = (uint16_t)(r16_before_value + 1);
+    uint16_t actual_r16_value = (uint16_t)(after->mem[0xfff0 | r16_h] << 8) | after->mem[0xfff0 | (r16_h + 1)];
+
+    if (expected_r16_value != actual_r16_value) {
+        sprintf(buffer + strlen(buffer), "expected r16 (%d) to be 0x%04x, is 0x%04x\n", r16_h, expected_r16_value, actual_r16_value);
         return true;
     }
 
@@ -284,7 +329,22 @@ static test_opcodes_Test_case test_cases[] = {
     { .o = LD_C_AT_K, .name = "ld c, [k]", .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_KH },
     { .o = LD_D_AT_K, .name = "ld d, [k]", .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_KH },
 
-    // LD_A_AT_I_INC
+    { .o = LD_A_AT_I_INC, .name = "ld a, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_IH },
+    { .o = LD_B_AT_I_INC, .name = "ld b, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_IH },
+    { .o = LD_C_AT_I_INC, .name = "ld c, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_IH },
+    { .o = LD_D_AT_I_INC, .name = "ld d, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_IH },
+
+    { .o = LD_A_AT_J_INC, .name = "ld a, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_JH },
+    { .o = LD_B_AT_J_INC, .name = "ld b, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_JH },
+    { .o = LD_C_AT_J_INC, .name = "ld c, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_JH },
+    { .o = LD_D_AT_J_INC, .name = "ld d, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_JH },
+
+    { .o = LD_A_AT_K_INC, .name = "ld a, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_KH },
+    { .o = LD_B_AT_K_INC, .name = "ld b, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_KH },
+    { .o = LD_C_AT_K_INC, .name = "ld c, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
+    { .o = LD_D_AT_K_INC, .name = "ld d, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
+
+    // LD_AT_I16_A
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
