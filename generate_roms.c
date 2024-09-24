@@ -56,8 +56,8 @@ typedef enum {
     A_UNARY = 1,
     A_NAND  = 2,
     A_ADD   = 3,
-    A_ADD_F = 4,
-    A_OP_5  = 5,
+    A_OP_5  = 4,
+    A_ADD_F = 5,
     A_OE_MH = 6,
     A_OE_ML = 7,
 } A;
@@ -72,8 +72,8 @@ typedef enum {
 #define C_B  0x1
 #define C_C  0x2
 #define C_D  0x3
-#define C_F  0x4
-#define C_T  0x5
+#define C_T  0x4
+#define C_F  A_ADD_F
 #define C_MH A_OE_MH
 #define C_ML A_OE_ML
 #define C_IH 0x8
@@ -167,6 +167,8 @@ typedef enum {
     LD_AT_I16_B,
     LD_AT_I16_C,
     LD_AT_I16_D,
+
+    ADD_A_I8,
 } O;
 
 #include "./signals_alu.inc"

@@ -276,6 +276,96 @@ static bool test_opcodes_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char *b
     return false;
 }
 
+static bool test_opcodes_ld_at_i16_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    srand((uint32_t)(permutation + 17));
+
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+    uint8_t i8 = rand() & 0xff;
+
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
+
+        before->mem[0xfff0 | r8] = i8;
+        before->mem[i16] = (uint8_t)(i8 + 17);
+
+        sprintf(buffer + strlen(buffer), "imm 0x%04x", i16);
+        return permutation >= 0xff;
+    }
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 3) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 3, pc_diff);
+        return true;
+    }
+
+    uint8_t at_i16_value = after->mem[i16];
+
+    if (at_i16_value != i8) {
+        sprintf(buffer + strlen(buffer), "expected [0x%04x] to be 0x%02x (%d), is 0x%02x\n", i16, i8, r8, at_i16_value);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_opcodes_add_r8_i8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    uint8_t r8_value = (uint8_t)(permutation >> 8);
+    uint8_t i8 = permutation & 0xff;
+
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i8;
+        before->mem[0xfff0 | r8] = r8_value;
+
+        sprintf(buffer + strlen(buffer), "add 0x%02x (%d), imm 0x%02x", r8_value, r8, i8);
+        return permutation >= 0xffff;
+    };
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 2) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 2, pc_diff);
+        return true;
+    }
+
+    uint8_t actual_r8_value = after->mem[0xfff0 | r8];
+    uint8_t expected_r8_value = (uint8_t)(r8_value + i8);
+
+    if (expected_r8_value != actual_r8_value) {
+        sprintf(buffer + strlen(buffer), "expected r8 (%d) to be 0x%02x, is 0x%02x\n", r8, expected_r8_value, actual_r8_value);
+        return true;
+    }
+
+    uint8_t flags = after->mem[0xfff0 | C_F];
+
+    if (r8_value + i8 >= 0x100 && !(flags & F_C)) {
+        sprintf(buffer + strlen(buffer), "expected cf\n");
+        return true;
+    } else if (r8_value + i8 < 0x100 && (flags & F_C)) {
+        sprintf(buffer + strlen(buffer), "expected cf cleared\n");
+        return true;
+    }
+
+    if (expected_r8_value == 0 && !(flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf\n");
+        return true;
+    } else if (expected_r8_value != 0 && (flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf cleared\n");
+        return true;
+    }
+
+    if (expected_r8_value >> 7 && !(flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf\n");
+        return true;
+    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf cleared\n");
+        return true;
+    }
+
+    return false;
+}
+
 static test_opcodes_Test_case test_cases[] = {
     { .o = NOP, .name = "nop", .test = test_opcodes_nop, .data = 0 },
 
@@ -344,7 +434,12 @@ static test_opcodes_Test_case test_cases[] = {
     { .o = LD_C_AT_K_INC, .name = "ld c, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
     { .o = LD_D_AT_K_INC, .name = "ld d, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
 
-    // LD_AT_I16_A
+    { .o = LD_AT_I16_A, .name = "ld [{imm:i16}], a", .test = test_opcodes_ld_at_i16_r8, .data = C_A },
+    { .o = LD_AT_I16_B, .name = "ld [{imm:i16}], b", .test = test_opcodes_ld_at_i16_r8, .data = C_B },
+    { .o = LD_AT_I16_C, .name = "ld [{imm:i16}], c", .test = test_opcodes_ld_at_i16_r8, .data = C_C },
+    { .o = LD_AT_I16_D, .name = "ld [{imm:i16}], d", .test = test_opcodes_ld_at_i16_r8, .data = C_D },
+
+    { .o = ADD_A_I8, .name = "add a, {imm:i8}", .test = test_opcodes_add_r8_i8, .data = C_A },
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {

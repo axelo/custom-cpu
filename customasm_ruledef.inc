@@ -119,6 +119,8 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
         case LD_AT_I16_C: n = customasm_ruledef_imm(size, ruledef, n, o, "ld [{imm:i16}], c"); break;
         case LD_AT_I16_D: n = customasm_ruledef_imm(size, ruledef, n, o, "ld [{imm:i16}], d"); break;
 
+        case ADD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, o, "add a, {imm:i8}"); break;
+
         default: break;
         }
     }
