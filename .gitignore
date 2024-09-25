@@ -1,0 +1,5 @@
+shelved
+*.dSYM
+*.customasm
+*.bin
+generate_roms
