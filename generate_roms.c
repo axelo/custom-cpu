@@ -26,9 +26,9 @@ https://en.wikipedia.org/wiki/NOR_logic
 #include <stdlib.h>
 #include <string.h>
 
-#define ROM_SIZE_BOOT    (1 << 8)
-#define ROM_SIZE_OPCODE  (1 << 17)
-#define ROM_SIZE_ALU     (1 << 19)
+#define ROM_SIZE_BOOT    (1 << 13) // 8 KB
+#define ROM_SIZE_OPCODE  (1 << 17) // 128 KB
+#define ROM_SIZE_ALU     (1 << 19) // 512 KB
 
 // signals
 #define LD_O   (1 << 0)
@@ -48,18 +48,20 @@ https://en.wikipedia.org/wiki/NOR_logic
 #define SEL_C3 (1 << 14)
 #define SEL_C  (1 << 15)
 
+#define SEL_C_LD_TF SEL_C3
+
 #define SIGNALS_ACTIVE_LOW_MASK (LD_C | LD_ML | LD_MH | LD_S | OE_MEM | OE_ALU | OE_T)
 
 // alu operations
 typedef enum {
-    A_BOOT  = 0,
-    A_UNARY = 1,
-    A_NAND  = 2,
-    A_ADD   = 3,
-    A_OP_5  = 4,
-    A_ADD_F = 5,
-    A_OE_MH = 6,
-    A_OE_ML = 7,
+    A_BOOT     = 0,
+    A_UNARY    = 1,
+    A_NAND     = 2,
+    A_ADD      = 3,
+    A_ADD_F_CF = 4,
+    A_ADD_F    = 5,
+    A_OE_MH    = 6,
+    A_OE_ML    = 7,
 } A;
 
 typedef enum {
@@ -90,7 +92,6 @@ typedef enum {
 #define F_C (1 << 1) // carry
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
-#define F_B (1 << 7) // boot size hit
 
 // opcodes
 typedef enum {
@@ -169,6 +170,8 @@ typedef enum {
     LD_AT_I16_D,
 
     ADD_A_I8,
+
+    ADDC_A_I8,
 } O;
 
 #include "./signals_alu.inc"
@@ -204,26 +207,6 @@ static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
 int main(void) {
     // read boot rom
     uint8_t rom_boot[ROM_SIZE_BOOT] = {
-        LD_A_I8, 0xaa,
-        LD_AT_I16_A, 0xff, 0xe0,
-
-        LD_I_I16, 0xff, 0xff,
-        LD_A_AT_I_INC,
-        LD_A_AT_I_INC,
-        LD_A_AT_I_INC,
-        LD_A_AT_I_INC,
-
-        LD_A_AT_AT_I16, 0x00, 0x07,
-
-        LD_A_AT_I16, 0x00, 16,
-        LD_B_AT_I16, 0x00, 17,
-        LD_C_AT_I16, 0x00, 19,
-        LD_D_AT_I16, 0x00, 20,
-
-        LD_I_I16, 0x00, 0x08,
-        LD_J_I16, 0x56, 0x78,
-        LD_K_I16, 0xab, 0xcd,
-
         LD_A_I8, 0x0a,
         LD_B_I8, 0x0b,
         LD_C_I8, 0x0c,
@@ -281,10 +264,10 @@ int main(void) {
     for (int i = 0; i < ROM_SIZE_OPCODE; ++i) {
         O o         = i & 0xff;
         uint8_t s   = (i >> 8) & 0xf;
-        uint8_t mll = (i >> 8 >> 4) & 0xf;
-        uint8_t m7  = (i >> 8 >> 4 >> 4) & 1;
+        uint8_t tf  = (i >> 8 >> 4) & 0xf;
+        uint8_t m13 = (i >> 8 >> 4 >> 4) & 1;
 
-        uint16_t signals = signals_opcode(o, s, mll, m7) ^ SIGNALS_ACTIVE_LOW_MASK;
+        uint16_t signals = signals_opcode(o, s, tf, m13) ^ SIGNALS_ACTIVE_LOW_MASK;
 
         rom_opcode1[i] = signals & 0xff;
         rom_opcode2[i] = (signals >> 8) & 0xff;

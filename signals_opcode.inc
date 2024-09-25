@@ -16,12 +16,11 @@
 #include "./opcode_ld_r8_at_r16_inc.inc"
 #include "./opcode_ld_at_i16_r8.inc"
 #include "./opcode_add_r8_i8.inc"
+#include "./opcode_addc_r8_i8.inc"
 
-static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t mll, uint8_t m7) {
-    (void)mll; // TODO: use
-
+static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t tf, uint8_t m13) {
     switch (o) {
-    case RESET: return opcode_reset(s, m7);
+    case RESET: return opcode_reset(s, m13);
 
     case NOP: return opcode_nop(s);
 
@@ -96,6 +95,8 @@ static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t mll, uint8_t m7) {
     case LD_AT_I16_D: return opcode_ld_at_i16_r8(C_D, s);
 
     case ADD_A_I8: return opcode_add_r8_i8(C_A, s);
+
+    case ADDC_A_I8: return opcode_addc_r8_i8(C_A, tf, s);
 
     default: return OE_T | LD_S;
     }

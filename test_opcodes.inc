@@ -5,6 +5,7 @@ typedef struct {
     uint8_t mh;
     uint8_t c;
     uint8_t t;
+    uint8_t tf; // 4 bit
     uint8_t mem[0x10000];
 } test_opcodes_State;
 
@@ -366,6 +367,69 @@ static bool test_opcodes_add_r8_i8(int r8, int permutation, char *buffer, test_o
     return false;
 }
 
+static bool test_opcodes_addc_r8_i8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    uint8_t r8_value = (uint8_t)(permutation >> 8);
+    uint8_t i8 = permutation & 0xff;
+    uint8_t ingoing_cf = (uint8_t)(permutation >> 16);
+
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i8;
+        before->mem[0xfff0 | r8] = r8_value;
+
+        uint8_t flags = ingoing_cf ? F_C : 0;
+
+        before->mem[0xfff0 | C_F] = flags;
+
+        sprintf(buffer + strlen(buffer), "addc 0x%02x (%d), imm 0x%02x, cf before %d", r8_value, r8, i8, ingoing_cf);
+        return permutation >= 0x1ffff;
+    };
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 2) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 2, pc_diff);
+        return true;
+    }
+
+    uint8_t actual_r8_value = after->mem[0xfff0 | r8];
+    uint8_t expected_r8_value = (uint8_t)(r8_value + i8 + ingoing_cf);
+
+    if (expected_r8_value != actual_r8_value) {
+        sprintf(buffer + strlen(buffer), "expected r8 (%d) to be 0x%02x, is 0x%02x\n", r8, expected_r8_value, actual_r8_value);
+        return true;
+    }
+
+    uint16_t q = r8_value + i8 + ingoing_cf;
+
+    uint8_t flags = after->mem[0xfff0 | C_F];
+
+    if (q >= 0x100 && !(flags & F_C)) {
+        sprintf(buffer + strlen(buffer), "expected cf\n");
+        return true;
+    } else if (q < 0x100 && (flags & F_C)) {
+        sprintf(buffer + strlen(buffer), "expected cf cleared\n");
+        return true;
+    }
+
+    if (expected_r8_value == 0 && !(flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf\n");
+        return true;
+    } else if (expected_r8_value != 0 && (flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf cleared\n");
+        return true;
+    }
+
+    if (expected_r8_value >> 7 && !(flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf\n");
+        return true;
+    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf cleared\n");
+        return true;
+    }
+
+    return false;
+}
+
 static test_opcodes_Test_case test_cases[] = {
     { .o = NOP, .name = "nop", .test = test_opcodes_nop, .data = 0 },
 
@@ -440,12 +504,14 @@ static test_opcodes_Test_case test_cases[] = {
     { .o = LD_AT_I16_D, .name = "ld [{imm:i16}], d", .test = test_opcodes_ld_at_i16_r8, .data = C_D },
 
     { .o = ADD_A_I8, .name = "add a, {imm:i8}", .test = test_opcodes_add_r8_i8, .data = C_A },
+
+    { .o = ADDC_A_I8, .name = "addc a, {imm:i8}", .test = test_opcodes_addc_r8_i8, .data = C_A },
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
     uint32_t index = (uint32_t)(
-        ((state->mh >> 7)  << 16) |
-        ((state->ml & 0xf) << 12) |
+        ((state->mh >> 13) << 16) |
+        ((state->tf & 0xf) << 12) |
          (state->s         << 8)  |
           state->o);
 
@@ -508,6 +574,12 @@ static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[
         sprintf(buffer + strlen(buffer), "      LD_C: sel C=0x%x sel M/C=%d\n", (signals >> 11) & 0xf, signals >> 11 >> 4);
 
         state->c = signals >> 11;
+    } else {
+        if (signals & SEL_C_LD_TF) {
+            sprintf(buffer + strlen(buffer), "      LD_TF\n");
+
+            state->tf = bus & 0xf;
+        }
     }
 
     if (signals & LD_ML) {
