@@ -5,7 +5,45 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
         switch ((A)operation) {
         case A_BOOT: break;
 
-        case A_UNARY: break; // TODO
+        case A_UNARY: {
+            for (int ml = 0; ml < 0x100; ++ml) {
+                for (int mh = 0; mh < 0x100; ++mh) {
+
+                    int rom_index = op_index | (mh << 8) | ml;
+
+                    uint8_t actual_output = rom_alu[rom_index];
+
+                    switch ((AU)ml) {
+                    case AU_SHR_F: {
+                        uint8_t expected_zf = ((uint8_t)(mh >> 1) == 0 ? 1 : 0);
+                        uint8_t expected_cf = mh & 1;
+                        uint8_t expected_of = 0;
+                        uint8_t expected_sf = (uint8_t)(mh >> 1) >> 7;
+                        uint8_t expected_output = (uint8_t)(
+                            (expected_sf << 3) |
+                            (expected_of << 2) |
+                            (expected_zf << 1) |
+                            (expected_cf << 0));
+
+                        if (actual_output != expected_output) {
+                            fprintf(stderr, "flags (0x%02x shr 1) => expected: 0x%02x, actual: 0x%02x\n", ml, expected_output, actual_output);
+                            return 1;
+                        }
+
+                    } break;
+
+                    case AU_SHR: {
+                        uint8_t expected_output = (uint8_t)(mh >> 1);
+
+                        if (actual_output != expected_output) {
+                            fprintf(stderr, "0x%02x shr 1 => expected: 0x%02x, actual: 0x%02x\n", ml, expected_output, actual_output);
+                            return 1;
+                        }
+                    } break;
+                    }
+                }
+            }
+        } break;
 
         case A_NAND: {
             for (int ml = 0; ml < 0x100; ++ml) {
@@ -53,15 +91,15 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
 
                     uint8_t actual_output = rom_alu[rom_index];
 
-                    uint8_t expected_zf = ((uint8_t)(ml + mh) == 0 ? 1 : 00);
-                    uint8_t expected_cf = ((ml + mh) > 0xff ? 1 : 00);
+                    uint8_t expected_zf = ((uint8_t)(ml + mh) == 0 ? 1 : 0);
+                    uint8_t expected_cf = ((ml + mh) > 0xff ? 1 : 0);
                     uint8_t expected_of = 0; // TODO
                     uint8_t expected_sf = (uint8_t)(ml + mh) >> 7;
                     uint8_t expected_output = (uint8_t)(
                         (expected_sf << 3) |
                         (expected_of << 2) |
-                        (expected_cf << 1) |
-                        (expected_zf << 0));
+                        (expected_zf << 1) |
+                        (expected_cf << 0));
 
                     if (actual_output != expected_output) {
                         fprintf(stderr, "flags (0x%02x + 0x%02x) => expected: 0x%02x, actual: 0x%02x\n", ml, mh, expected_output, actual_output);
@@ -90,8 +128,8 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
                     uint8_t expected_output = (uint8_t)(
                         (expected_sf << 3) |
                         (expected_of << 2) |
-                        (expected_cf << 1) |
-                        (expected_zf << 0));
+                        (expected_zf << 1) |
+                        (expected_cf << 0));
 
                     if (actual_output != expected_output) {
                         fprintf(stderr, "flags (0x%02x + 0x%02x + 1) => expected: 0x%02x, actual: 0x%02x\n", ml, mh, expected_output, actual_output);

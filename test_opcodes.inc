@@ -318,6 +318,7 @@ static bool test_opcodes_add_r8_i8(int r8, int permutation, char *buffer, test_o
     if (after == NULL) {
         before->mem[test_state_M(before) + 1] = i8;
         before->mem[0xfff0 | r8] = r8_value;
+        before->mem[0xfff0 | C_F] = 0;
 
         sprintf(buffer + strlen(buffer), "add 0x%02x (%d), imm 0x%02x", r8_value, r8, i8);
         return permutation >= 0xffff;
@@ -430,6 +431,114 @@ static bool test_opcodes_addc_r8_i8(int r8, int permutation, char *buffer, test_
     return false;
 }
 
+static bool test_opcodes_shl_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    uint8_t r8_value = (uint8_t)permutation;
+
+    if (after == NULL) {
+        before->mem[0xfff0 | r8] = r8_value;
+
+        sprintf(buffer + strlen(buffer), "shl 0x%02x (%d)", r8_value, r8);
+        return permutation >= 0xff;
+    };
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    uint8_t actual_r8_value = after->mem[0xfff0 | r8];
+    uint8_t expected_r8_value = (uint8_t)(r8_value << 1);
+
+    if (expected_r8_value != actual_r8_value) {
+        sprintf(buffer + strlen(buffer), "expected r8 (%d) to be 0x%02x, is 0x%02x\n", r8, expected_r8_value, actual_r8_value);
+        return true;
+    }
+
+    uint8_t flags = after->mem[0xfff0 | C_F];
+
+    uint8_t expected_cf = r8_value >> 7;
+    uint8_t actual_cf = flags & F_C;
+
+    if (expected_cf != actual_cf) {
+        sprintf(buffer + strlen(buffer), "expected cf to be %d, is %d\n", expected_cf, actual_cf);
+        return true;
+    }
+
+    if (expected_r8_value == 0 && !(flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf\n");
+        return true;
+    } else if (expected_r8_value != 0 && (flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf cleared\n");
+        return true;
+    }
+
+    if (expected_r8_value >> 7 && !(flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf\n");
+        return true;
+    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf cleared\n");
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_opcodes_shr_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    uint8_t r8_value = (uint8_t)permutation;
+
+    if (after == NULL) {
+        before->mem[0xfff0 | r8] = r8_value;
+
+        sprintf(buffer + strlen(buffer), "shr 0x%02x (%d)", r8_value, r8);
+        return permutation >= 0xff;
+    };
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    uint8_t actual_r8_value = after->mem[0xfff0 | r8];
+    uint8_t expected_r8_value = (uint8_t)(r8_value >> 1);
+
+    if (expected_r8_value != actual_r8_value) {
+        sprintf(buffer + strlen(buffer), "expected r8 (%d) to be 0x%02x, is 0x%02x\n", r8, expected_r8_value, actual_r8_value);
+        return true;
+    }
+
+    uint8_t flags = after->mem[0xfff0 | C_F];
+
+    uint8_t expected_cf = r8_value & 1;
+    uint8_t actual_cf = flags & F_C;
+
+    if (expected_cf != actual_cf) {
+        sprintf(buffer + strlen(buffer), "expected cf to be %d, is %d\n", expected_cf, actual_cf);
+        return true;
+    }
+
+    if (expected_r8_value == 0 && !(flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf\n");
+        return true;
+    } else if (expected_r8_value != 0 && (flags & F_Z)) {
+        sprintf(buffer + strlen(buffer), "expected zf cleared\n");
+        return true;
+    }
+
+    if (expected_r8_value >> 7 && !(flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf\n");
+        return true;
+    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
+        sprintf(buffer + strlen(buffer), "expected sf cleared\n");
+        return true;
+    }
+
+    return false;
+}
+
 static test_opcodes_Test_case test_cases[] = {
     { .o = NOP, .name = "nop", .test = test_opcodes_nop, .data = 0 },
 
@@ -503,6 +612,10 @@ static test_opcodes_Test_case test_cases[] = {
     { .o = LD_AT_I16_C, .name = "ld [{imm:i16}], c", .test = test_opcodes_ld_at_i16_r8, .data = C_C },
     { .o = LD_AT_I16_D, .name = "ld [{imm:i16}], d", .test = test_opcodes_ld_at_i16_r8, .data = C_D },
 
+    { .o = SHL_A, .name = "shl a", .test = test_opcodes_shl_r8, .data = C_A },
+
+    { .o = SHR_A, .name = "shr a", .test = test_opcodes_shr_r8, .data = C_A },
+
     { .o = ADD_A_I8, .name = "add a, {imm:i8}", .test = test_opcodes_add_r8_i8, .data = C_A },
 
     { .o = ADDC_A_I8, .name = "addc a, {imm:i8}", .test = test_opcodes_addc_r8_i8, .data = C_A },
@@ -510,9 +623,9 @@ static test_opcodes_Test_case test_cases[] = {
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
     uint32_t index = (uint32_t)(
-        ((state->mh >> 13) << 16) |
-        ((state->tf & 0xf) << 12) |
-         (state->s         << 8)  |
+        (((state->mh >> 5) & 1) << 16) |
+        ((state->tf & 0xf)      << 12) |
+         (state->s              << 8)  |
           state->o);
 
     uint16_t signals = (uint16_t)((rom_opcode2[index] << 8) | rom_opcode1[index]) ^ SIGNALS_ACTIVE_LOW_MASK;
@@ -620,8 +733,40 @@ static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[
      return state->s == 0 ? 1 : 0;
 }
 
+
 static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE]) {
     char buffer[0x2000];
+
+    test_opcodes_State state = {0};
+
+    state.mem[0xfff0 | C_FF] = 0xab;
+    state.mem[0xfff0 | C_00] = 0xba;
+
+    int steps = 0;
+
+    state.o = RESET;
+
+    for (;; ++steps) {
+        buffer[0] = '\0';
+
+        int error = test_opcodes_step(rom_alu, rom_opcode1, rom_opcode2, buffer, &state);
+        // printf("step %d\n%s\n", steps, buffer);
+
+        if (error > 1) {
+            fprintf(stderr, "RESET failed\n");
+            return 1;
+        }
+
+        if (state.o != RESET && error == 1) break;
+
+        if (state.mh >= 0x20 && state.ml >= 0x02) {
+            fprintf(stderr, "M too big 0x%02x%02x\n", state.mh, state.ml);
+            return 1;
+        }
+    }
+
+    printf("reset complete after %d steps\n", steps);
+
     char failed_permutation_buffer[0x100];
 
     int n_failed_tests = 0;
@@ -631,7 +776,7 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
             buffer[0] = '\0';
             failed_permutation_buffer[0] = '\0';
 
-            test_opcodes_State state = {0};
+            if (state.mh == 0xff) state.mh = 0; // prevent overwriting mem registers
 
             test_opcodes_Test_case test_case = test_cases[i];
 
@@ -645,9 +790,7 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
 
             bool test_failed = false;
 
-            int steps = 0;
-
-            for (; steps < 0x100; ++steps) {
+            for (steps = 0; steps < 0x100; ++steps) {
                 int error = test_opcodes_step(rom_alu, rom_opcode1, rom_opcode2, buffer, &state);
 
                 if (error > 1) {

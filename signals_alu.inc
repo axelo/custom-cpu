@@ -5,10 +5,25 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
         return address >= ROM_SIZE_BOOT ? 0xab : rom_boot[address];
     }
 
-    case A_UNARY: return 0; // TODO
+    case A_UNARY: {
+        switch ((AU)ml) {
+        case AU_SHR_F: {
+            uint16_t q = mh >> 1;
+            uint8_t zf = (q & 0xff) == 0;
+            uint8_t cf = mh & 1;
+            uint8_t of = 0;
+            uint8_t sf = (q >> 7) & 1;
 
-    case A_NAND:  return (uint8_t)~(ml & mh);
-    case A_ADD:   return (uint8_t)(ml + mh);
+            return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+        }
+
+        case AU_SHR: return (uint8_t)(mh >> 1);
+        }
+    } break;
+
+    case A_NAND: return (uint8_t)~(ml & mh);
+
+    case A_ADD:  return (uint8_t)(ml + mh);
 
     case A_ADD_F: {
         uint16_t q = ml + mh;
@@ -17,7 +32,7 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
         uint8_t of = 0; // TODO
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
-        return (uint8_t)((sf << 3) | (of << 2) | (cf << 1) | (zf << 0));
+        return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
     }
 
     case A_ADD_F_CF: {
@@ -27,10 +42,11 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
         uint8_t of = 0; // TODO
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
-        return (uint8_t)((sf << 3) | (of << 2) | (cf << 1) | (zf << 0));
+        return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
     }
 
     case A_OE_ML: return (uint8_t)ml;
+
     case A_OE_MH: return (uint8_t)mh;
 
     default: assert(0 && "invalid alu operation");

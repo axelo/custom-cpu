@@ -123,6 +123,10 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
 
         case ADDC_A_I8: n = customasm_ruledef_imm(size, ruledef, n, o, "addc a, {imm:i8}"); break;
 
+        case SHL_A: n = customasm_ruledef_0(size, ruledef, n, o, "shl a"); break;
+
+        case SHR_A: n = customasm_ruledef_0(size, ruledef, n, o, "shr a"); break;
+
         default: break;
         }
     }

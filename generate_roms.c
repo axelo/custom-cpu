@@ -65,8 +65,8 @@ typedef enum {
 } A;
 
 typedef enum {
-    AU_SHR   = 0x01,
-    AU_SHR_F = 0xff,
+    AU_SHR_F = 0x00,
+    AU_SHR   = 0x02,
 } AU;
 
 // constants
@@ -84,12 +84,12 @@ typedef enum {
 #define C_JL 0xb
 #define C_KH 0xc
 #define C_KL 0xd
-#define C_01 0xe
+#define C_00 0xe
 #define C_FF 0xf
 
 // flags
-#define F_Z (1 << 0) // zero
-#define F_C (1 << 1) // carry
+#define F_C (1 << 0) // carry
+#define F_Z (1 << 1) // zero
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
 
@@ -172,6 +172,10 @@ typedef enum {
     ADD_A_I8,
 
     ADDC_A_I8,
+
+    SHL_A,
+
+    SHR_A,
 } O;
 
 #include "./signals_alu.inc"
