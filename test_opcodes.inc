@@ -196,7 +196,7 @@ static bool test_opcodes_ld_r8_at_at_i16(int r8, int permutation, char *buffer, 
 }
 
 static bool test_opcodes_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
-    srand((uint32_t)(permutation + 19));
+    srand((uint32_t)(permutation + 37));
 
     uint8_t r8 = (uint8_t)(r8_r16_h >> 4);
     uint8_t r16_h = r8_r16_h & 0xf;
@@ -232,7 +232,7 @@ static bool test_opcodes_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffe
 }
 
 static bool test_opcodes_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
-    srand((uint32_t)(permutation + 19));
+    srand((uint32_t)(permutation + 37));
 
     uint8_t r8 = (uint8_t)(r8_r16_h >> 4);
     uint8_t r16_h = r8_r16_h & 0xf;
@@ -539,6 +539,27 @@ static bool test_opcodes_shr_r8(int r8, int permutation, char *buffer, test_opco
     return false;
 }
 
+static bool test_opcodes_jmp_i16(int data, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    srand((uint32_t)(permutation + 17));
+
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
+        return permutation >= 0xff;
+    }
+
+    uint16_t actual_pc = test_state_M(after);
+
+    if (actual_pc != i16) {
+        sprintf(buffer + strlen(buffer), "expected pc to be 0x%04x, is 0x%04x\n", i16, actual_pc);
+        return true;
+    }
+
+    return false;
+}
+
 static test_opcodes_Test_case test_cases[] = {
     { .o = NOP, .name = "nop", .test = test_opcodes_nop, .data = 0 },
 
@@ -619,6 +640,8 @@ static test_opcodes_Test_case test_cases[] = {
     { .o = ADD_A_I8, .name = "add a, {imm:i8}", .test = test_opcodes_add_r8_i8, .data = C_A },
 
     { .o = ADDC_A_I8, .name = "addc a, {imm:i8}", .test = test_opcodes_addc_r8_i8, .data = C_A },
+
+    { .o = JMP_I16, .name = "jmp {imm:i16}", .test = test_opcodes_jmp_i16, .data = 0 },
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
@@ -750,17 +773,16 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
         buffer[0] = '\0';
 
         int error = test_opcodes_step(rom_alu, rom_opcode1, rom_opcode2, buffer, &state);
-        // printf("step %d\n%s\n", steps, buffer);
 
         if (error > 1) {
-            fprintf(stderr, "RESET failed\n");
+            fprintf(stderr, "reset failed: %s\n", buffer);
             return 1;
         }
 
         if (state.o != RESET && error == 1) break;
 
         if (state.mh >= 0x20 && state.ml >= 0x02) {
-            fprintf(stderr, "M too big 0x%02x%02x\n", state.mh, state.ml);
+            fprintf(stderr, "reset failed, M too big 0x%02x%02x\n", state.mh, state.ml);
             return 1;
         }
     }
@@ -770,8 +792,9 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
     char failed_permutation_buffer[0x100];
 
     int n_failed_tests = 0;
+    int n_test_cases = sizeof(test_cases) / sizeof(test_cases[0]);
 
-    for (int i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); ++i) {
+    for (int i = n_test_cases - 1; i >= 0; --i) {
         for (int permutation = 0;; ++permutation) {
             buffer[0] = '\0';
             failed_permutation_buffer[0] = '\0';

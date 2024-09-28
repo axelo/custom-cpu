@@ -5,20 +5,6 @@ static size_t inline customasm_ruledef_0(size_t size, char ruledef[size], size_t
     return n;
 }
 
-// static size_t inline customasm_ruledef_i8(size_t size, char ruledef[size], size_t n, int o, const char *mnemonic) {
-//     n += (size_t) snprintf(ruledef + n, size, "%s%s, {i:i8}%s%02x @ i\n", "    ", mnemonic, " => 0x", o);
-//     assert(n < size);
-
-//     return n;
-// }
-
-// static size_t inline customasm_ruledef_i16(size_t size, char ruledef[size], size_t n, int o, const char *mnemonic, const char *around_l, const char *around_r) {
-//     n += (size_t) snprintf(ruledef + n, size, "%s%s, %s{i:i16}%s%s%02x @ i\n", "    ", mnemonic, around_l, around_r, " => 0x", o);
-//     assert(n < size);
-
-//     return n;
-// }
-
 static size_t inline customasm_ruledef_imm(size_t size, char ruledef[size], size_t n, int o, const char *mnemonic) {
     n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x @ imm\n", "    ", mnemonic, " => 0x", o);
     assert(n < size);
@@ -126,6 +112,8 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
         case SHL_A: n = customasm_ruledef_0(size, ruledef, n, o, "shl a"); break;
 
         case SHR_A: n = customasm_ruledef_0(size, ruledef, n, o, "shr a"); break;
+
+        case JMP_I16: n = customasm_ruledef_imm(size, ruledef, n, o, "jmp {imm:i16}"); break;
 
         default: break;
         }

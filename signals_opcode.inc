@@ -19,6 +19,7 @@
 #include "./opcode_addc_r8_i8.inc"
 #include "./opcode_shl_r8.inc"
 #include "./opcode_shr_r8.inc"
+#include "./opcode_jmp_i16.inc"
 
 static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t tf, uint8_t m13) {
     switch (o) {
@@ -103,6 +104,8 @@ static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t tf, uint8_t m13) {
     case SHL_A: return opcode_shl_r8(C_A, s);
 
     case SHR_A: return opcode_shr_r8(C_A, s);
+
+    case JMP_I16: return opcode_jmp_i16(s);
 
     default: return OE_T | LD_S;
     }
