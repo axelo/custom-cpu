@@ -60,10 +60,12 @@
 #define MNEMONIC_SHL_A          "shl a"
 #define MNEMONIC_SHR_A          "shr a"
 #define MNEMONIC_JMP_I16        "jmp {imm:i16}"
+#define MNEMONIC_JMP_K          "jmp k"
 #define MNEMONIC_JZ_I16         "jz {imm:i16}"
 #define MNEMONIC_JNZ_I16        "jnz {imm:i16}"
 #define MNEMONIC_JC_I16         "jc {imm:i16}"
 #define MNEMONIC_JNC_I16        "jnc {imm:i16}"
+#define MNEMONIC_JAL_K_I16      "jal k, {imm:i16}"
 
 static size_t inline customasm_ruledef_0(size_t size, char ruledef[size], size_t n, int o, const char *mnemonic) {
     n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", mnemonic, " => 0x", o);
@@ -182,10 +184,14 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
 
         case JMP_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JMP_I16); break;
 
+        case JMP_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_JMP_K); break;
+
         case JZ_I16:  n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JZ_I16);  break;
         case JNZ_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JNZ_I16); break;
         case JC_I16:  n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JC_I16);  break;
         case JNC_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JNC_I16); break;
+
+        case JAL_K_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JAL_K_I16); break;
 
         default: break;
         }

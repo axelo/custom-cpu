@@ -560,6 +560,27 @@ static bool test_opcodes_jmp_i16(int data, int permutation, char *buffer, test_o
     return false;
 }
 
+static bool test_opcodes_jmp_r16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    srand((uint32_t)(permutation + 19));
+
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+
+    if (after == NULL) {
+        before->mem[0xfff0 | r16_h] = i16 >> 8;
+        before->mem[0xfff0 | (r16_h + 1)] = i16 & 0xff;
+        return permutation >= 0xff;
+    }
+
+    uint16_t actual_pc = test_state_M(after);
+
+    if (actual_pc != i16) {
+        sprintf(buffer + strlen(buffer), "expected pc to be 0x%04x, is 0x%04x\n", i16, actual_pc);
+        return true;
+    }
+
+    return false;
+}
+
 static bool test_opcodes_jmp_i16_conditional(int flags_0_1, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
     srand((uint32_t)(permutation + 17));
 
@@ -592,6 +613,37 @@ static bool test_opcodes_jmp_i16_conditional(int flags_0_1, int permutation, cha
             sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 3, pc_diff);
             return true;
         }
+    }
+
+    return false;
+}
+
+static bool test_opcodes_jal_r16_i16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    srand((uint32_t)(permutation + 33));
+
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+
+    if (after == NULL) {
+        before->mh = (uint8_t)permutation;
+        before->ml = 0xcd;
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
+        return permutation >= 0xff;
+    }
+
+    uint16_t actual_pc = test_state_M(after);
+
+    if (actual_pc != i16) {
+        sprintf(buffer + strlen(buffer), "expected pc to be 0x%04x, is 0x%04x\n", i16, actual_pc);
+        return true;
+    }
+
+    uint16_t actual_r16 = (uint16_t)(after->mem[0xfff0 | r16_h] << 8) | after->mem[0xfff0 | (r16_h + 1)];
+    uint16_t expected_r16 = (uint16_t)(((before->mh << 8) | before->ml) + 3);
+
+    if (actual_r16 != expected_r16) {
+        sprintf(buffer + strlen(buffer), "expected r16 (%d) to be 0x%04x, is 0x%04x\n", r16_h, expected_r16, actual_r16);
+        return true;
     }
 
     return false;
@@ -680,10 +732,14 @@ static test_opcodes_Test_case test_cases[] = {
 
     { .o = JMP_I16, .name = MNEMONIC_JMP_I16, .test = test_opcodes_jmp_i16, .data = 0 },
 
+    { .o = JMP_K, .name = MNEMONIC_JMP_K, .test = test_opcodes_jmp_r16, .data = C_KH },
+
     { .o = JZ_I16,  .name = MNEMONIC_JZ_I16,  .test = test_opcodes_jmp_i16_conditional, .data =   0 << 4 | F_Z },
     { .o = JNZ_I16, .name = MNEMONIC_JNZ_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_Z << 4 | 0 },
     { .o = JC_I16,  .name = MNEMONIC_JC_I16,  .test = test_opcodes_jmp_i16_conditional, .data =   0 << 4 | F_C },
     { .o = JNC_I16, .name = MNEMONIC_JNC_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_C << 4 | 0 },
+
+    { .o = JAL_K_I16, .name = MNEMONIC_JAL_K_I16, .test = test_opcodes_jal_r16_i16, .data = C_KH },
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
@@ -847,9 +903,9 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
 
             state.o = (uint8_t)test_case.o; // To prevent getting stuck in reset opcode
 
-            state.mem[test_state_M(&state)] = (uint8_t)test_case.o; // The value loaded into O on first step
-
             bool last_permutation = test_case.test(test_case.data, permutation, failed_permutation_buffer, &state, NULL);
+
+            state.mem[test_state_M(&state)] = (uint8_t)test_case.o; // The value loaded into O on first step
 
             test_opcodes_State orignal_state = state;
 

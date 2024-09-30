@@ -178,10 +178,15 @@ typedef enum {
     SHR_A,
 
     JMP_I16,
+    JMP_K,
+
     JZ_I16,
     JNZ_I16,
     JC_I16,
     JNC_I16,
+    // http://www.unixwiz.net/techtips/x86-jumps.html
+
+    JAL_K_I16,
 } O;
 
 #include "./signals_alu.inc"
