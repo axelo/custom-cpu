@@ -27,9 +27,12 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
 
     case A_ADD_F: {
         uint16_t q = ml + mh;
-        uint8_t zf = (q & 0xff) == 0;
         uint8_t cf = q > 0xff;
-        uint8_t of = 0; // TODO
+        uint8_t zf = (q & 0xff) == 0;
+        uint8_t of = (
+            ((int8_t)ml >= 0 && (int8_t)mh >= 0 && (int8_t)q < 0) ||
+            ((int8_t)ml < 0  && (int8_t)mh < 0  && (int8_t)q >= 0))
+            ? 1 : 0;
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
         return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
@@ -37,9 +40,12 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
 
     case A_ADD_F_CF: {
         uint16_t q = ((ml - 1) & 0xff) + mh + 1;
-        uint8_t zf = (q & 0xff) == 0;
         uint8_t cf = q > 0xff;
-        uint8_t of = 0; // TODO
+        uint8_t zf = (q & 0xff) == 0;
+        uint8_t of = (
+            ((int8_t)ml >= 0 && (int8_t)mh >= 0 && (int8_t)q < 0) ||
+            ((int8_t)ml < 0  && (int8_t)mh < 0  && (int8_t)q >= 0))
+            ? 1 : 0;
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
         return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));

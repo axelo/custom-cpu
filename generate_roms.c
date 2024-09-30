@@ -178,6 +178,10 @@ typedef enum {
     SHR_A,
 
     JMP_I16,
+    JZ_I16,
+    JNZ_I16,
+    JC_I16,
+    JNC_I16,
 } O;
 
 #include "./signals_alu.inc"

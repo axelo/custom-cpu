@@ -560,88 +560,130 @@ static bool test_opcodes_jmp_i16(int data, int permutation, char *buffer, test_o
     return false;
 }
 
+static bool test_opcodes_jmp_i16_conditional(int flags_0_1, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    srand((uint32_t)(permutation + 17));
+
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+
+    uint8_t flags = permutation ? (flags_0_1 & 0xf) : ((uint8_t)flags_0_1 >> 4);
+
+    if (after == NULL) {
+        // sprintf(buffer + strlen(buffer), "set mask 0x%x, cleared mask: 0x%x", set_mask, cleared_mask);
+
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
+
+        before->mem[0xfff0 | C_F] = flags;
+
+        return permutation >= 1;
+    }
+
+    uint16_t actual_pc = test_state_M(after);
+
+    if (permutation) {
+        if (actual_pc != i16) {
+            sprintf(buffer + strlen(buffer), "expected pc to be 0x%04x, is 0x%04x\n", i16, actual_pc);
+            return true;
+        }
+    } else {
+        int pc_diff = test_state_M(after) - test_state_M(before);
+
+        if (pc_diff != 3) {
+            sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 3, pc_diff);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static test_opcodes_Test_case test_cases[] = {
-    { .o = NOP, .name = "nop", .test = test_opcodes_nop, .data = 0 },
+    { .o = NOP, .name = MNEMONIC_NOP, .test = test_opcodes_nop, .data = 0 },
 
-    { .o = LD_A_I8, .name = "ld a, {imm:i8}", .test = test_opcodes_ld_r8_i8, .data = C_A },
-    { .o = LD_B_I8, .name = "ld b, {imm:i8}", .test = test_opcodes_ld_r8_i8, .data = C_B },
-    { .o = LD_C_I8, .name = "ld c, {imm:i8}", .test = test_opcodes_ld_r8_i8, .data = C_C },
-    { .o = LD_D_I8, .name = "ld d, {imm:i8}", .test = test_opcodes_ld_r8_i8, .data = C_D },
+    { .o = LD_A_I8, .name = MNEMONIC_LD_A_I8, .test = test_opcodes_ld_r8_i8, .data = C_A },
+    { .o = LD_B_I8, .name = MNEMONIC_LD_B_I8, .test = test_opcodes_ld_r8_i8, .data = C_B },
+    { .o = LD_C_I8, .name = MNEMONIC_LD_C_I8, .test = test_opcodes_ld_r8_i8, .data = C_C },
+    { .o = LD_D_I8, .name = MNEMONIC_LD_D_I8, .test = test_opcodes_ld_r8_i8, .data = C_D },
 
-    { .o = LD_A_B, .name = "ld a, b", .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_B },
-    { .o = LD_A_C, .name = "ld a, c", .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_C },
-    { .o = LD_A_D, .name = "ld a, d", .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_D },
+    { .o = LD_A_B, .name = MNEMONIC_LD_A_B, .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_B },
+    { .o = LD_A_C, .name = MNEMONIC_LD_A_C, .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_C },
+    { .o = LD_A_D, .name = MNEMONIC_LD_A_D, .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_D },
 
-    { .o = LD_B_A, .name = "ld b, a", .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_A },
-    { .o = LD_B_C, .name = "ld b, c", .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_C },
-    { .o = LD_B_D, .name = "ld b, d", .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_D },
+    { .o = LD_B_A, .name = MNEMONIC_LD_B_A, .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_A },
+    { .o = LD_B_C, .name = MNEMONIC_LD_B_C, .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_C },
+    { .o = LD_B_D, .name = MNEMONIC_LD_B_D, .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_D },
 
-    { .o = LD_C_A, .name = "ld c, a", .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_A },
-    { .o = LD_C_B, .name = "ld c, b", .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_B },
-    { .o = LD_C_D, .name = "ld c, d", .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_D },
+    { .o = LD_C_A, .name = MNEMONIC_LD_C_A, .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_A },
+    { .o = LD_C_B, .name = MNEMONIC_LD_C_B, .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_B },
+    { .o = LD_C_D, .name = MNEMONIC_LD_C_D, .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_D },
 
-    { .o = LD_D_A, .name = "ld d, a", .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_A },
-    { .o = LD_D_B, .name = "ld d, b", .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_B },
-    { .o = LD_D_C, .name = "ld d, c", .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_C },
+    { .o = LD_D_A, .name = MNEMONIC_LD_D_A, .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_A },
+    { .o = LD_D_B, .name = MNEMONIC_LD_D_B, .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_B },
+    { .o = LD_D_C, .name = MNEMONIC_LD_D_C, .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_C },
 
-    { .o = LD_I_I16, .name = "ld i, {imm:i16}", .test = test_opcodes_ld_r16_i16, .data = C_IH },
-    { .o = LD_J_I16, .name = "ld j, {imm:i16}", .test = test_opcodes_ld_r16_i16, .data = C_JH },
-    { .o = LD_K_I16, .name = "ld k, {imm:i16}", .test = test_opcodes_ld_r16_i16, .data = C_KH },
+    { .o = LD_I_I16, .name = MNEMONIC_LD_I_I16, .test = test_opcodes_ld_r16_i16, .data = C_IH },
+    { .o = LD_J_I16, .name = MNEMONIC_LD_J_I16, .test = test_opcodes_ld_r16_i16, .data = C_JH },
+    { .o = LD_K_I16, .name = MNEMONIC_LD_K_I16, .test = test_opcodes_ld_r16_i16, .data = C_KH },
 
-    { .o = LD_A_AT_I16, .name = "ld a, [{imm:i16}]", .test = test_opcodes_ld_r8_at_i16, .data = C_A },
-    { .o = LD_B_AT_I16, .name = "ld b, [{imm:i16}]", .test = test_opcodes_ld_r8_at_i16, .data = C_B },
-    { .o = LD_C_AT_I16, .name = "ld c, [{imm:i16}]", .test = test_opcodes_ld_r8_at_i16, .data = C_C },
-    { .o = LD_D_AT_I16, .name = "ld d, [{imm:i16}]", .test = test_opcodes_ld_r8_at_i16, .data = C_D },
+    { .o = LD_A_AT_I16, .name = MNEMONIC_LD_A_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_A },
+    { .o = LD_B_AT_I16, .name = MNEMONIC_LD_B_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_B },
+    { .o = LD_C_AT_I16, .name = MNEMONIC_LD_C_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_C },
+    { .o = LD_D_AT_I16, .name = MNEMONIC_LD_D_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_D },
 
-    { .o = LD_A_AT_AT_I16, .name = "ld a, [[{imm:i16}]]", .test = test_opcodes_ld_r8_at_at_i16, .data = C_A },
-    { .o = LD_B_AT_AT_I16, .name = "ld b, [[{imm:i16}]]", .test = test_opcodes_ld_r8_at_at_i16, .data = C_B },
-    { .o = LD_C_AT_AT_I16, .name = "ld c, [[{imm:i16}]]", .test = test_opcodes_ld_r8_at_at_i16, .data = C_C },
-    { .o = LD_D_AT_AT_I16, .name = "ld d, [[{imm:i16}]]", .test = test_opcodes_ld_r8_at_at_i16, .data = C_D },
+    { .o = LD_A_AT_AT_I16, .name = MNEMONIC_LD_A_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_A },
+    { .o = LD_B_AT_AT_I16, .name = MNEMONIC_LD_B_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_B },
+    { .o = LD_C_AT_AT_I16, .name = MNEMONIC_LD_C_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_C },
+    { .o = LD_D_AT_AT_I16, .name = MNEMONIC_LD_D_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_D },
 
-    { .o = LD_A_AT_I, .name = "ld a, [i]", .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_IH },
-    { .o = LD_B_AT_I, .name = "ld b, [i]", .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_IH },
-    { .o = LD_C_AT_I, .name = "ld c, [i]", .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_IH },
-    { .o = LD_D_AT_I, .name = "ld d, [i]", .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_IH },
+    { .o = LD_A_AT_I, .name = MNEMONIC_LD_A_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_IH },
+    { .o = LD_B_AT_I, .name = MNEMONIC_LD_B_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_IH },
+    { .o = LD_C_AT_I, .name = MNEMONIC_LD_C_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_IH },
+    { .o = LD_D_AT_I, .name = MNEMONIC_LD_D_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_IH },
 
-    { .o = LD_A_AT_J, .name = "ld a, [j]", .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_JH },
-    { .o = LD_B_AT_J, .name = "ld b, [j]", .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_JH },
-    { .o = LD_C_AT_J, .name = "ld c, [j]", .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_JH },
-    { .o = LD_D_AT_J, .name = "ld d, [j]", .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_JH },
+    { .o = LD_A_AT_J, .name = MNEMONIC_LD_A_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_JH },
+    { .o = LD_B_AT_J, .name = MNEMONIC_LD_B_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_JH },
+    { .o = LD_C_AT_J, .name = MNEMONIC_LD_C_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_JH },
+    { .o = LD_D_AT_J, .name = MNEMONIC_LD_D_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_JH },
 
-    { .o = LD_A_AT_K, .name = "ld a, [k]", .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_KH },
-    { .o = LD_B_AT_K, .name = "ld b, [k]", .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_KH },
-    { .o = LD_C_AT_K, .name = "ld c, [k]", .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_KH },
-    { .o = LD_D_AT_K, .name = "ld d, [k]", .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_KH },
+    { .o = LD_A_AT_K, .name = MNEMONIC_LD_A_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_KH },
+    { .o = LD_B_AT_K, .name = MNEMONIC_LD_B_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_KH },
+    { .o = LD_C_AT_K, .name = MNEMONIC_LD_C_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_KH },
+    { .o = LD_D_AT_K, .name = MNEMONIC_LD_D_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_KH },
 
-    { .o = LD_A_AT_I_INC, .name = "ld a, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_IH },
-    { .o = LD_B_AT_I_INC, .name = "ld b, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_IH },
-    { .o = LD_C_AT_I_INC, .name = "ld c, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_IH },
-    { .o = LD_D_AT_I_INC, .name = "ld d, [i++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_IH },
+    { .o = LD_A_AT_I_INC, .name = MNEMONIC_LD_A_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_IH },
+    { .o = LD_B_AT_I_INC, .name = MNEMONIC_LD_B_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_IH },
+    { .o = LD_C_AT_I_INC, .name = MNEMONIC_LD_C_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_IH },
+    { .o = LD_D_AT_I_INC, .name = MNEMONIC_LD_D_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_IH },
 
-    { .o = LD_A_AT_J_INC, .name = "ld a, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_JH },
-    { .o = LD_B_AT_J_INC, .name = "ld b, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_JH },
-    { .o = LD_C_AT_J_INC, .name = "ld c, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_JH },
-    { .o = LD_D_AT_J_INC, .name = "ld d, [j++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_JH },
+    { .o = LD_A_AT_J_INC, .name = MNEMONIC_LD_A_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_JH },
+    { .o = LD_B_AT_J_INC, .name = MNEMONIC_LD_B_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_JH },
+    { .o = LD_C_AT_J_INC, .name = MNEMONIC_LD_C_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_JH },
+    { .o = LD_D_AT_J_INC, .name = MNEMONIC_LD_D_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_JH },
 
-    { .o = LD_A_AT_K_INC, .name = "ld a, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_KH },
-    { .o = LD_B_AT_K_INC, .name = "ld b, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_KH },
-    { .o = LD_C_AT_K_INC, .name = "ld c, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
-    { .o = LD_D_AT_K_INC, .name = "ld d, [k++]", .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
+    { .o = LD_A_AT_K_INC, .name = MNEMONIC_LD_A_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_KH },
+    { .o = LD_B_AT_K_INC, .name = MNEMONIC_LD_B_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_KH },
+    { .o = LD_C_AT_K_INC, .name = MNEMONIC_LD_C_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
+    { .o = LD_D_AT_K_INC, .name = MNEMONIC_LD_D_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
 
-    { .o = LD_AT_I16_A, .name = "ld [{imm:i16}], a", .test = test_opcodes_ld_at_i16_r8, .data = C_A },
-    { .o = LD_AT_I16_B, .name = "ld [{imm:i16}], b", .test = test_opcodes_ld_at_i16_r8, .data = C_B },
-    { .o = LD_AT_I16_C, .name = "ld [{imm:i16}], c", .test = test_opcodes_ld_at_i16_r8, .data = C_C },
-    { .o = LD_AT_I16_D, .name = "ld [{imm:i16}], d", .test = test_opcodes_ld_at_i16_r8, .data = C_D },
+    { .o = LD_AT_I16_A, .name = MNEMONIC_LD_AT_I16_A, .test = test_opcodes_ld_at_i16_r8, .data = C_A },
+    { .o = LD_AT_I16_B, .name = MNEMONIC_LD_AT_I16_B, .test = test_opcodes_ld_at_i16_r8, .data = C_B },
+    { .o = LD_AT_I16_C, .name = MNEMONIC_LD_AT_I16_C, .test = test_opcodes_ld_at_i16_r8, .data = C_C },
+    { .o = LD_AT_I16_D, .name = MNEMONIC_LD_AT_I16_D, .test = test_opcodes_ld_at_i16_r8, .data = C_D },
 
-    { .o = SHL_A, .name = "shl a", .test = test_opcodes_shl_r8, .data = C_A },
+    { .o = SHL_A, .name = MNEMONIC_SHL_A, .test = test_opcodes_shl_r8, .data = C_A },
 
-    { .o = SHR_A, .name = "shr a", .test = test_opcodes_shr_r8, .data = C_A },
+    { .o = SHR_A, .name = MNEMONIC_SHR_A, .test = test_opcodes_shr_r8, .data = C_A },
 
-    { .o = ADD_A_I8, .name = "add a, {imm:i8}", .test = test_opcodes_add_r8_i8, .data = C_A },
+    { .o = ADD_A_I8, .name = MNEMONIC_ADD_A_I8, .test = test_opcodes_add_r8_i8, .data = C_A },
 
-    { .o = ADDC_A_I8, .name = "addc a, {imm:i8}", .test = test_opcodes_addc_r8_i8, .data = C_A },
+    { .o = ADDC_A_I8, .name = MNEMONIC_ADDC_A_I8, .test = test_opcodes_addc_r8_i8, .data = C_A },
 
-    { .o = JMP_I16, .name = "jmp {imm:i16}", .test = test_opcodes_jmp_i16, .data = 0 },
+    { .o = JMP_I16, .name = MNEMONIC_JMP_I16, .test = test_opcodes_jmp_i16, .data = 0 },
+
+    { .o = JZ_I16,  .name = MNEMONIC_JZ_I16,  .test = test_opcodes_jmp_i16_conditional, .data =   0 << 4 | F_Z },
+    { .o = JNZ_I16, .name = MNEMONIC_JNZ_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_Z << 4 | 0 },
+    { .o = JC_I16,  .name = MNEMONIC_JC_I16,  .test = test_opcodes_jmp_i16_conditional, .data =   0 << 4 | F_C },
+    { .o = JNC_I16, .name = MNEMONIC_JNC_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_C << 4 | 0 },
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
