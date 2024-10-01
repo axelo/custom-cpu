@@ -198,7 +198,7 @@ typedef enum {
 } O;
 
 #include "./signals_alu.inc"
-#include "./signals_opcode.inc"
+#include "signals_instruction.inc"
 #include "./customasm_ruledef.inc"
 
 #include "./test_alu.inc"
@@ -290,7 +290,7 @@ int main(void) {
         uint8_t tf  = (i >> 8 >> 4) & 0xf;
         uint8_t m13 = (i >> 8 >> 4 >> 4) & 1;
 
-        uint16_t signals = signals_opcode(o, s, tf, m13) ^ SIGNALS_ACTIVE_LOW_MASK;
+        uint16_t signals = signals_instruction(o, s, tf, m13) ^ SIGNALS_ACTIVE_LOW_MASK;
 
         rom_opcode1[i] = signals & 0xff;
         rom_opcode2[i] = (signals >> 8) & 0xff;

@@ -1,4 +1,4 @@
-static inline uint16_t opcode_ld_r8_at_r16(uint8_t dst_r8, uint8_t src_rh8, uint8_t src_rl8, uint8_t s) {
+static inline uint16_t instruction_ld_r8_at_r16(uint8_t dst_r8, uint8_t src_rh8, uint8_t src_rl8, uint8_t s) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T   |                LD_CSEL(C_MH | C);    // C = C_MH

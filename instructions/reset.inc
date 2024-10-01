@@ -1,4 +1,4 @@
-static inline uint16_t opcode_reset(uint8_t s, uint8_t m13) {
+static inline uint16_t instruction_reset(uint8_t s, uint8_t m13) {
     // copy byte, inc m and test zero
     switch (s) {
     case 0x0: return OE_T   |                 LD_CSEL(A_BOOT | M);

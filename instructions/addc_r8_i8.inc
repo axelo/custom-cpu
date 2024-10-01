@@ -10,7 +10,7 @@ dest + src + cf
 
 */
 
-static inline uint16_t opcode_addc_r8_i8(uint8_t dst_r8, uint8_t tf, uint8_t s) {
+static inline uint16_t instruction_addc_r8_i8(uint8_t dst_r8, uint8_t tf, uint8_t s) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_MEM | LD_T | INC_M   | LD_CSEL(C_MH | C);
@@ -31,7 +31,7 @@ static inline uint16_t opcode_addc_r8_i8(uint8_t dst_r8, uint8_t tf, uint8_t s) 
     return OE_T;
 }
 
-// static inline uint16_t opcode_addc_r8_i8(uint8_t dst_r8, uint8_t mhl, uint8_t s) {
+// static inline uint16_t instruction_addc_r8_i8(uint8_t dst_r8, uint8_t mhl, uint8_t s) {
 //     switch (s) {
 //     case 0x0: return S0_FETCH;
 //     case 0x1: return OE_MEM | LD_T | INC_M | LD_CSEL(C_MH | C);        // T = i8, M++, C = C_MH
@@ -57,7 +57,7 @@ static inline uint16_t opcode_addc_r8_i8(uint8_t dst_r8, uint8_t tf, uint8_t s) 
 //     return OE_T;
 // }
 
-// static inline uint16_t opcode_addc_r8_i8(uint8_t dst_r8, uint8_t mhl, uint8_t s) {
+// static inline uint16_t instruction_addc_r8_i8(uint8_t dst_r8, uint8_t mhl, uint8_t s) {
 //     switch (s) {
 //     case 0x0: return S0_FETCH;
 //     case 0x1: return OE_MEM | LD_T | INC_M | LD_CSEL(C_MH | C);

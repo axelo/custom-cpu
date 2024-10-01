@@ -1,4 +1,4 @@
-static inline uint16_t opcode_jmp_r16(uint8_t r16_h, uint8_t r16_l, uint8_t s) {
+static inline uint16_t instruction_jmp_r16(uint8_t r16_h, uint8_t r16_l, uint8_t s) {
     switch (s) {
     case 0: return S0_FETCH;
     case 1: return OE_T                  | LD_CSEL(r16_h | C);
