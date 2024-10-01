@@ -65,8 +65,8 @@ typedef enum {
 } A;
 
 typedef enum {
-    AU_SHR_F = 0x00,
-    AU_SHR   = 0x02,
+    AU_SHR_F = 0xff,
+    AU_SHR   = 0x01,
 } AU;
 
 // constants
@@ -84,7 +84,7 @@ typedef enum {
 #define C_JL 0xb
 #define C_KH 0xc
 #define C_KL 0xd
-#define C_00 0xe
+#define C_SP 0xe
 #define C_FF 0xf
 
 // flags
@@ -187,6 +187,14 @@ typedef enum {
     // http://www.unixwiz.net/techtips/x86-jumps.html
 
     JAL_K_I16,
+
+    PUSH_A,
+
+    PUSH_K,
+
+    POP_A,
+
+    POP_K,
 } O;
 
 #include "./signals_alu.inc"

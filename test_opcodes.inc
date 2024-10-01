@@ -649,6 +649,157 @@ static bool test_opcodes_jal_r16_i16(int r16_h, int permutation, char *buffer, t
     return false;
 }
 
+static bool test_opcodes_push_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    if (after == NULL) {
+        before->mem[0xfff0 | C_SP] = (uint8_t)permutation + 1;
+        before->mem[0xfff0 | r8] = (uint8_t)permutation;
+        return permutation >= 0xf0;
+    }
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    int sp_diff = after->mem[0xfff0 | C_SP] - before->mem[0xfff0 | C_SP];
+
+    if (sp_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected sp to move %d step(s), actual moved %d step(s)\n", 1, sp_diff);
+        return true;
+    }
+
+    uint8_t expected_pushed_i8 = before->mem[0xfff0 | r8];
+    uint8_t actual_pushed_i8 = after->mem[0xff00 | before->mem[0xfff0 | C_SP]];
+
+    if (actual_pushed_i8 != expected_pushed_i8) {
+        sprintf(buffer + strlen(buffer), "expected 0x%02x to be pushed onto stack, is 0x%02x\n", expected_pushed_i8, actual_pushed_i8);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_opcodes_push_r16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    if (after == NULL) {
+        srand((uint32_t)(permutation + 37));
+
+        before->mem[0xfff0 | C_SP] = (uint8_t)(permutation * 2);
+        before->mem[0xfff0 | r16_h] = (uint8_t)rand();
+        before->mem[0xfff0 | (r16_h + 1)] = (uint8_t)rand();
+        return permutation >= (0xf0 / 2);
+    }
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    int sp_diff = after->mem[0xfff0 | C_SP] - before->mem[0xfff0 | C_SP];
+
+    if (sp_diff != 2) {
+        sprintf(buffer + strlen(buffer), "expected sp to move %d step(s), actual moved %d step(s)\n", 2, sp_diff);
+        return true;
+    }
+
+    uint8_t expected_pushed_i8_h = before->mem[0xfff0 | r16_h];
+    uint8_t expected_pushed_i8_l = before->mem[0xfff0 | (r16_h + 1)];
+
+    uint8_t actual_pushed_i8_h = after->mem[0xff00 | before->mem[0xfff0 | C_SP]];
+    uint8_t actual_pushed_i8_l = after->mem[0xff00 | (before->mem[0xfff0 | C_SP] + 1)];
+
+    if (actual_pushed_i8_h != expected_pushed_i8_h) {
+        sprintf(buffer + strlen(buffer), "expected 0x%02x to be pushed onto stack, is 0x%02x\n", expected_pushed_i8_h, actual_pushed_i8_h);
+        return true;
+    }
+
+    if (actual_pushed_i8_l != expected_pushed_i8_l) {
+        sprintf(buffer + strlen(buffer), "expected 0x%02x to be pushed onto stack, is 0x%02x\n", expected_pushed_i8_l, actual_pushed_i8_l);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_opcodes_pop_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    uint8_t i8 = (uint8_t)permutation;
+
+    if (after == NULL) {
+        before->mem[0xfff0 | r8] = 0x00;
+        before->mem[0xfff0 | C_SP] = (uint8_t)permutation + 1;
+        before->mem[0xff00 | (before->mem[0xfff0 | C_SP] - 1)] = i8;
+
+        return permutation >= 0xef;
+    }
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    int sp_diff = after->mem[0xfff0 | C_SP] - before->mem[0xfff0 | C_SP];
+
+    if (sp_diff != -1) {
+        sprintf(buffer + strlen(buffer), "expected sp to move %d step(s), actual moved %d step(s)\n", -1, sp_diff);
+        return true;
+    }
+
+    uint8_t expected_popped_i8 = i8;
+    uint8_t actual_popped_i8 = after->mem[0xfff0 | r8];
+
+    if (actual_popped_i8 != expected_popped_i8) {
+        sprintf(buffer + strlen(buffer), "expected 0x%02x to be popped from the stack, was 0x%02x\n", expected_popped_i8, actual_popped_i8);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_opcodes_pop_r16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+    uint16_t i16 = (uint16_t)(0xab00 | permutation);
+
+    if (after == NULL) {
+        before->mem[0xfff0 | r16_h] = 0x00;
+        before->mem[0xfff0 | (r16_h + 1)] = 0x00;
+
+        before->mem[0xfff0 | C_SP] = (uint8_t)permutation + 2;
+        before->mem[0xff00 | before->mem[0xfff0 | C_SP] - 2] = i16 >> 8;
+        before->mem[0xff00 | before->mem[0xfff0 | C_SP] - 1] = i16 & 0xff;
+
+        return permutation >= 0x78;
+    }
+
+    int pc_diff = test_state_M(after) - test_state_M(before);
+
+    if (pc_diff != 1) {
+        sprintf(buffer + strlen(buffer), "expected pc to move %d step(s), actual moved %d step(s)\n", 1, pc_diff);
+        return true;
+    }
+
+    int sp_diff = after->mem[0xfff0 | C_SP] - before->mem[0xfff0 | C_SP];
+
+    if (sp_diff != -2) {
+        sprintf(buffer + strlen(buffer), "expected sp to move %d step(s), actual moved %d step(s)\n", -2, sp_diff);
+        return true;
+    }
+
+    uint16_t expected_popped_i16 = i16;
+    uint16_t actual_popped_i16 =
+        (uint16_t)(after->mem[0xfff0 | r16_h] << 8) | (after->mem[0xfff0 | (r16_h + 1)]);
+
+    if (actual_popped_i16 != expected_popped_i16) {
+        sprintf(buffer + strlen(buffer), "expected 0x%04x to be popped from the stack, was 0x%04x\n", expected_popped_i16, actual_popped_i16);
+        return true;
+    }
+
+    return false;
+}
+
 static test_opcodes_Test_case test_cases[] = {
     { .o = NOP, .name = MNEMONIC_NOP, .test = test_opcodes_nop, .data = 0 },
 
@@ -740,6 +891,14 @@ static test_opcodes_Test_case test_cases[] = {
     { .o = JNC_I16, .name = MNEMONIC_JNC_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_C << 4 | 0 },
 
     { .o = JAL_K_I16, .name = MNEMONIC_JAL_K_I16, .test = test_opcodes_jal_r16_i16, .data = C_KH },
+
+    { .o = PUSH_A, .name = MNEMONIC_PUSH_A, .test = test_opcodes_push_r8, .data = C_A },
+
+    { .o = PUSH_K, .name = MNEMONIC_PUSH_K, .test = test_opcodes_push_r16, .data = C_KH },
+
+    { .o = POP_A, .name = MNEMONIC_POP_A, .test = test_opcodes_pop_r8, .data = C_A },
+
+    { .o = POP_K, .name = MNEMONIC_POP_K, .test = test_opcodes_pop_r16, .data = C_KH },
 };
 
 static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
@@ -861,7 +1020,7 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
     test_opcodes_State state = {0};
 
     state.mem[0xfff0 | C_FF] = 0xab;
-    state.mem[0xfff0 | C_00] = 0xba;
+    state.mem[0xfff0 | C_SP] = 0xba;
 
     int steps = 0;
 

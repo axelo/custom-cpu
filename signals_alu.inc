@@ -17,7 +17,7 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
         }
 
-        case AU_SHR: return (uint8_t)(mh >> 1);
+        case AU_SHR: return (uint8_t)((uint8_t)(mh - 1) >> 1); // -1 due to INC_M on ML = 0xff.
         }
     } break;
 

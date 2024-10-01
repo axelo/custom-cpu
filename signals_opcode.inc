@@ -23,6 +23,10 @@
 #include "./opcode_jmp_r16.inc"
 #include "./opcode_jmp_i16_conditional.inc"
 #include "./opcode_jal_r16_i16.inc"
+#include "./opcode_push_r8.inc"
+#include "./opcode_push_r16.inc"
+#include "./opcode_pop_r8.inc"
+#include "./opcode_pop_r16.inc"
 
 static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t tf, uint8_t m13) {
     switch (o) {
@@ -118,6 +122,14 @@ static inline uint16_t signals_opcode(O o, uint8_t s, uint8_t tf, uint8_t m13) {
     case JNC_I16: return opcode_jmp_i16_conditional(!(tf & F_C), s);
 
     case JAL_K_I16: return opcode_jal_r16_i16(C_KH, C_KL, s);
+
+    case PUSH_A: return opcode_push_r8(C_A, s);
+
+    case PUSH_K: return opcode_push_r16(C_KH, C_KL, s);
+
+    case POP_A: return opcode_pop_r8(C_A, s);
+
+    case POP_K: return opcode_pop_r16(C_KH, C_KL, s);
 
     default: return OE_T | LD_S;
     }
