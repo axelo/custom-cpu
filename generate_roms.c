@@ -169,6 +169,8 @@ typedef enum {
     LD_AT_I16_C,
     LD_AT_I16_D,
 
+    LD_AT_I_INC_A,
+
     ADD_A_I8,
 
     ADDC_A_I8,

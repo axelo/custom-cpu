@@ -55,6 +55,7 @@
 #define MNEMONIC_LD_AT_I16_B    "ld [{imm:i16}], b"
 #define MNEMONIC_LD_AT_I16_C    "ld [{imm:i16}], c"
 #define MNEMONIC_LD_AT_I16_D    "ld [{imm:i16}], d"
+#define MNEMONIC_LD_AT_I_INC_A  "ld [i++], a"
 #define MNEMONIC_ADD_A_I8       "add a, {imm:i8}"
 #define MNEMONIC_ADDC_A_I8      "addc a, {imm:i8}"
 #define MNEMONIC_SHL_A          "shl a"
@@ -177,6 +178,8 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
         case LD_AT_I16_B: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_B); break;
         case LD_AT_I16_C: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_C); break;
         case LD_AT_I16_D: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_D); break;
+
+        case LD_AT_I_INC_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_AT_I_INC_A); break;
 
         case ADD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_ADD_A_I8); break;
 
