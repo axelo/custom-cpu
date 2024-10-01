@@ -72,15 +72,15 @@
 #define MNEMONIC_POP_A          "pop a"
 #define MNEMONIC_POP_K          "pop k"
 
-static size_t inline customasm_ruledef_0(size_t size, char ruledef[size], size_t n, int o, const char *mnemonic) {
-    n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", mnemonic, " => 0x", o);
+static size_t inline customasm_ruledef_0(size_t size, char ruledef[size], size_t n, int i, const char *mnemonic) {
+    n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", mnemonic, " => 0x", i);
     assert(n < size);
 
     return n;
 }
 
-static size_t inline customasm_ruledef_imm(size_t size, char ruledef[size], size_t n, int o, const char *mnemonic) {
-    n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x @ imm\n", "    ", mnemonic, " => 0x", o);
+static size_t inline customasm_ruledef_imm(size_t size, char ruledef[size], size_t n, int i, const char *mnemonic) {
+    n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x @ imm\n", "    ", mnemonic, " => 0x", i);
     assert(n < size);
 
     return n;
@@ -104,109 +104,109 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
     n += strlcat(ruledef + n, start, size);
     assert(n < size);
 
-    for (int o = 0; o < 0x100; ++o) {
-        switch ((O)o) {
-        case RESET: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_RESET); break;
-        case NOP: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_NOP); break;
+    for (int i = 0; i < 0x100; ++i) {
+        switch ((Instruction)i) {
+        case RESET: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_RESET); break;
+        case NOP: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_NOP); break;
 
-        case LD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_A_I8); break;
-        case LD_B_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_B_I8); break;
-        case LD_C_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_C_I8); break;
-        case LD_D_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_D_I8); break;
+        case LD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_A_I8); break;
+        case LD_B_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_B_I8); break;
+        case LD_C_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_C_I8); break;
+        case LD_D_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_D_I8); break;
 
-        case LD_A_B: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_B); break;
-        case LD_A_C: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_C); break;
-        case LD_A_D: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_D); break;
+        case LD_A_B: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_B); break;
+        case LD_A_C: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_C); break;
+        case LD_A_D: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_D); break;
 
-        case LD_B_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_A); break;
-        case LD_B_C: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_C); break;
-        case LD_B_D: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_D); break;
+        case LD_B_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_A); break;
+        case LD_B_C: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_C); break;
+        case LD_B_D: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_D); break;
 
-        case LD_C_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_A); break;
-        case LD_C_B: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_B); break;
-        case LD_C_D: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_D); break;
+        case LD_C_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_A); break;
+        case LD_C_B: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_B); break;
+        case LD_C_D: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_D); break;
 
-        case LD_D_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_A); break;
-        case LD_D_B: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_B); break;
-        case LD_D_C: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_C); break;
+        case LD_D_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_A); break;
+        case LD_D_B: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_B); break;
+        case LD_D_C: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_C); break;
 
-        case LD_I_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_I_I16); break;
-        case LD_J_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_J_I16); break;
-        case LD_K_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_K_I16); break;
+        case LD_I_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_I_I16); break;
+        case LD_J_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_J_I16); break;
+        case LD_K_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_K_I16); break;
 
-        case LD_A_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_A_AT_I16); break;
-        case LD_B_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_B_AT_I16); break;
-        case LD_C_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_C_AT_I16); break;
-        case LD_D_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_D_AT_I16); break;
+        case LD_A_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_A_AT_I16); break;
+        case LD_B_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_B_AT_I16); break;
+        case LD_C_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_C_AT_I16); break;
+        case LD_D_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_D_AT_I16); break;
 
-        case LD_A_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_A_AT_AT_I16); break;
-        case LD_B_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_B_AT_AT_I16); break;
-        case LD_C_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_C_AT_AT_I16); break;
-        case LD_D_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_D_AT_AT_I16); break;
+        case LD_A_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_A_AT_AT_I16); break;
+        case LD_B_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_B_AT_AT_I16); break;
+        case LD_C_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_C_AT_AT_I16); break;
+        case LD_D_AT_AT_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_D_AT_AT_I16); break;
 
-        case LD_A_AT_I: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_AT_I); break;
-        case LD_B_AT_I: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_AT_I); break;
-        case LD_C_AT_I: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_AT_I); break;
-        case LD_D_AT_I: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_AT_I); break;
+        case LD_A_AT_I: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_AT_I); break;
+        case LD_B_AT_I: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_AT_I); break;
+        case LD_C_AT_I: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_AT_I); break;
+        case LD_D_AT_I: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_AT_I); break;
 
-        case LD_A_AT_J: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_AT_J); break;
-        case LD_B_AT_J: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_AT_J); break;
-        case LD_C_AT_J: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_AT_J); break;
-        case LD_D_AT_J: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_AT_J); break;
+        case LD_A_AT_J: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_AT_J); break;
+        case LD_B_AT_J: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_AT_J); break;
+        case LD_C_AT_J: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_AT_J); break;
+        case LD_D_AT_J: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_AT_J); break;
 
-        case LD_A_AT_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_AT_K); break;
-        case LD_B_AT_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_AT_K); break;
-        case LD_C_AT_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_AT_K); break;
-        case LD_D_AT_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_AT_K); break;
+        case LD_A_AT_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_AT_K); break;
+        case LD_B_AT_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_AT_K); break;
+        case LD_C_AT_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_AT_K); break;
+        case LD_D_AT_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_AT_K); break;
 
-        case LD_A_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_AT_I_INC); break;
-        case LD_B_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_AT_I_INC); break;
-        case LD_C_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_AT_I_INC); break;
-        case LD_D_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_AT_I_INC); break;
+        case LD_A_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_AT_I_INC); break;
+        case LD_B_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_AT_I_INC); break;
+        case LD_C_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_AT_I_INC); break;
+        case LD_D_AT_I_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_AT_I_INC); break;
 
-        case LD_A_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_AT_J_INC); break;
-        case LD_B_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_AT_J_INC); break;
-        case LD_C_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_AT_J_INC); break;
-        case LD_D_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_AT_J_INC); break;
+        case LD_A_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_AT_J_INC); break;
+        case LD_B_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_AT_J_INC); break;
+        case LD_C_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_AT_J_INC); break;
+        case LD_D_AT_J_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_AT_J_INC); break;
 
-        case LD_A_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_A_AT_K_INC); break;
-        case LD_B_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_B_AT_K_INC); break;
-        case LD_C_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_C_AT_K_INC); break;
-        case LD_D_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_D_AT_K_INC); break;
+        case LD_A_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_A_AT_K_INC); break;
+        case LD_B_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_B_AT_K_INC); break;
+        case LD_C_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_C_AT_K_INC); break;
+        case LD_D_AT_K_INC: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_D_AT_K_INC); break;
 
-        case LD_AT_I16_A: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_A); break;
-        case LD_AT_I16_B: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_B); break;
-        case LD_AT_I16_C: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_C); break;
-        case LD_AT_I16_D: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_LD_AT_I16_D); break;
+        case LD_AT_I16_A: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_AT_I16_A); break;
+        case LD_AT_I16_B: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_AT_I16_B); break;
+        case LD_AT_I16_C: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_AT_I16_C); break;
+        case LD_AT_I16_D: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_AT_I16_D); break;
 
-        case LD_AT_I_INC_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_LD_AT_I_INC_A); break;
+        case LD_AT_I_INC_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_AT_I_INC_A); break;
 
-        case ADD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_ADD_A_I8); break;
+        case ADD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_ADD_A_I8); break;
 
-        case ADDC_A_I8: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_ADDC_A_I8); break;
+        case ADDC_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_ADDC_A_I8); break;
 
-        case SHL_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_SHL_A); break;
+        case SHL_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SHL_A); break;
 
-        case SHR_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_SHR_A); break;
+        case SHR_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SHR_A); break;
 
-        case JMP_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JMP_I16); break;
+        case JMP_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JMP_I16); break;
 
-        case JMP_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_JMP_K); break;
+        case JMP_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_JMP_K); break;
 
-        case JZ_I16:  n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JZ_I16);  break;
-        case JNZ_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JNZ_I16); break;
-        case JC_I16:  n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JC_I16);  break;
-        case JNC_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JNC_I16); break;
+        case JZ_I16:  n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JZ_I16);  break;
+        case JNZ_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JNZ_I16); break;
+        case JC_I16:  n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JC_I16);  break;
+        case JNC_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JNC_I16); break;
 
-        case JAL_K_I16: n = customasm_ruledef_imm(size, ruledef, n, o, MNEMONIC_JAL_K_I16); break;
+        case JAL_K_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JAL_K_I16); break;
 
-        case PUSH_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_PUSH_A); break;
+        case PUSH_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_PUSH_A); break;
 
-        case PUSH_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_PUSH_K); break;
+        case PUSH_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_PUSH_K); break;
 
-        case POP_A: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_POP_A); break;
+        case POP_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_POP_A); break;
 
-        case POP_K: n = customasm_ruledef_0(size, ruledef, n, o, MNEMONIC_POP_K); break;
+        case POP_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_POP_K); break;
 
         default: break;
         }

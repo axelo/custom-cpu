@@ -26,12 +26,12 @@ https://en.wikipedia.org/wiki/NOR_logic
 #include <stdlib.h>
 #include <string.h>
 
-#define ROM_SIZE_BOOT    (1 << 13) // 8 KB
-#define ROM_SIZE_OPCODE  (1 << 17) // 128 KB
-#define ROM_SIZE_ALU     (1 << 19) // 512 KB
+#define ROM_SIZE_BOOT        (1 << 13) // 8 KB
+#define ROM_SIZE_INSTRUCTION (1 << 17) // 128 KB
+#define ROM_SIZE_ALU         (1 << 19) // 512 KB
 
 // signals
-#define LD_O   (1 << 0)
+#define LD_I   (1 << 0)
 #define LD_C   (1 << 1)
 #define LD_ML  (1 << 2)
 #define LD_MH  (1 << 3)
@@ -93,7 +93,7 @@ typedef enum {
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
 
-// opcodes
+// instructions
 typedef enum {
     RESET = 0x00,
 
@@ -197,14 +197,14 @@ typedef enum {
     POP_A,
 
     POP_K,
-} O;
+} Instruction;
 
 #include "./signals_alu.inc"
 #include "signals_instruction.inc"
 #include "./customasm_ruledef.inc"
 
 #include "./test_alu.inc"
-#include "./test_opcodes.inc"
+#include "./test_instructions.inc"
 
 static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     FILE *file = fopen(filename, "w");
@@ -282,20 +282,20 @@ int main(void) {
         rom_alu[i] = signals_alu(rom_boot, ml, mh, alu_op);
     }
 
-    // generate opcode roms
-    uint8_t rom_opcode1[ROM_SIZE_OPCODE];
-    uint8_t rom_opcode2[ROM_SIZE_OPCODE];
+    // generate instruction roms
+    uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION];
+    uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION];
 
-    for (int i = 0; i < ROM_SIZE_OPCODE; ++i) {
-        O o         = i & 0xff;
-        uint8_t s   = (i >> 8) & 0xf;
-        uint8_t tf  = (i >> 8 >> 4) & 0xf;
-        uint8_t m13 = (i >> 8 >> 4 >> 4) & 1;
+    for (int index = 0; index < ROM_SIZE_INSTRUCTION; ++index) {
+        Instruction i = index & 0xff;
+        uint8_t s     = (index >> 8) & 0xf;
+        uint8_t tf    = (index >> 8 >> 4) & 0xf;
+        uint8_t m13   = (index >> 8 >> 4 >> 4) & 1;
 
-        uint16_t signals = signals_instruction(o, s, tf, m13) ^ SIGNALS_ACTIVE_LOW_MASK;
+        uint16_t signals = signals_instruction(i, s, tf, m13) ^ SIGNALS_ACTIVE_LOW_MASK;
 
-        rom_opcode1[i] = signals & 0xff;
-        rom_opcode2[i] = (signals >> 8) & 0xff;
+        rom_instruction1[index] = signals & 0xff;
+        rom_instruction2[index] = (signals >> 8) & 0xff;
     }
 
     // generate customasm ruledef
@@ -309,14 +309,14 @@ int main(void) {
         return 1;
     }
 
-    if (test_opcodes(rom_alu, rom_opcode1, rom_opcode2)) {
-        fprintf(stderr, "test_opcodes failed\n");
+    if (test_instructions(rom_alu, rom_instruction1, rom_instruction2)) {
+        fprintf(stderr, "test_instructions failed\n");
         return 1;
     }
 
     // write outputs to files
     if (write_rom(ROM_SIZE_ALU, rom_alu, "rom_alu.bin")) return 1;
-    if (write_rom(ROM_SIZE_OPCODE, rom_opcode1, "rom_opcode1.bin")) return 1;
-    if (write_rom(ROM_SIZE_OPCODE, rom_opcode2, "rom_opcode2.bin")) return 1;
+    if (write_rom(ROM_SIZE_INSTRUCTION, rom_instruction1, "rom_instruction1.bin")) return 1;
+    if (write_rom(ROM_SIZE_INSTRUCTION, rom_instruction2, "rom_instruction2.bin")) return 1;
     if (write_rom(ruledef_size, (uint8_t*)ruledef, "ruledef.customasm")) return 1;
 }

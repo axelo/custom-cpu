@@ -15,7 +15,7 @@ static inline uint16_t instruction_jal_r16_i16(uint8_t r16_h, uint8_t r16_l, uin
     return OE_T;
 }
 
-/*static inline uint16_t opcode_jal_r16_i16_v2(uint8_t r16_h, uint8_t r16_l, uint8_t s) {
+/*static inline uint16_t instruction_jal_r16_i16_v2(uint8_t r16_h, uint8_t r16_l, uint8_t s) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T                  | LD_CSEL(C_MH | C);

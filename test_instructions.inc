@@ -1,5 +1,5 @@
 typedef struct {
-    uint8_t o;
+    uint8_t i;
     uint8_t s; // 4 bit
     uint8_t ml;
     uint8_t mh;
@@ -7,19 +7,19 @@ typedef struct {
     uint8_t t;
     uint8_t tf; // 4 bit
     uint8_t mem[0x10000];
-} test_opcodes_State;
+} test_State;
 
 typedef struct {
-    O o;
+    Instruction i;
     const char* name;
     int data;
-    bool (*test)(int, int, char*, test_opcodes_State*, test_opcodes_State*);
-} test_opcodes_Test_case;
+    bool (*test)(int, int, char*, test_State*, test_State*);
+} test_Test_case;
 
 #define test_state_M(state) ((uint16_t)(((state)->mh << 8) | (state)->ml))
 #define test_state_M_or_C(state) ((state)->c & 0x10)
 
-static bool test_opcodes_nop(int data, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_nop(int data, int permutation, char *buffer, test_State *before, test_State *after) {
     if (after == NULL) return true;
 
     int pc_diff = test_state_M(after) - test_state_M(before);
@@ -32,7 +32,7 @@ static bool test_opcodes_nop(int data, int permutation, char *buffer, test_opcod
     return false;
 }
 
-static bool test_opcodes_ld_r8_i8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r8_i8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t i8 = permutation & 0xff;
 
     if (after == NULL) {
@@ -58,7 +58,7 @@ static bool test_opcodes_ld_r8_i8(int r8, int permutation, char *buffer, test_op
     return false;
 }
 
-static bool test_opcodes_ld_r8_r8(int r8_r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r8_r8(int r8_r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t dest_r8 = r8_r8 >> 4 & 0xf;
     uint8_t src_r8 = r8_r8 & 0xf;
 
@@ -93,7 +93,7 @@ static bool test_opcodes_ld_r8_r8(int r8_r8, int permutation, char *buffer, test
     return false;
 }
 
-static bool test_opcodes_ld_r16_i16(int r8_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r16_i16(int r8_h, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 42));
 
     uint16_t i16 = (rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -125,7 +125,7 @@ static bool test_opcodes_ld_r16_i16(int r8_h, int permutation, char *buffer, tes
     return false;
 }
 
-static bool test_opcodes_ld_r8_at_i16(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r8_at_i16(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 17));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -158,7 +158,7 @@ static bool test_opcodes_ld_r8_at_i16(int r8, int permutation, char *buffer, tes
     return false;
 }
 
-static bool test_opcodes_ld_r8_at_at_i16(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r8_at_at_i16(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 37));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -195,7 +195,7 @@ static bool test_opcodes_ld_r8_at_at_i16(int r8, int permutation, char *buffer, 
     return false;
 }
 
-static bool test_opcodes_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 37));
 
     uint8_t r8 = (uint8_t)(r8_r16_h >> 4);
@@ -231,7 +231,7 @@ static bool test_opcodes_ld_r8_at_r16(int r8_r16_h, int permutation, char *buffe
     return false;
 }
 
-static bool test_opcodes_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 37));
 
     uint8_t r8 = (uint8_t)(r8_r16_h >> 4);
@@ -277,7 +277,7 @@ static bool test_opcodes_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char *b
     return false;
 }
 
-static bool test_opcodes_ld_at_i16_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_at_i16_r8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 17));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -311,7 +311,7 @@ static bool test_opcodes_ld_at_i16_r8(int r8, int permutation, char *buffer, tes
     return false;
 }
 
-static bool test_opcodes_add_r8_i8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_add_r8_i8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t r8_value = (uint8_t)(permutation >> 8);
     uint8_t i8 = permutation & 0xff;
 
@@ -368,7 +368,7 @@ static bool test_opcodes_add_r8_i8(int r8, int permutation, char *buffer, test_o
     return false;
 }
 
-static bool test_opcodes_addc_r8_i8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_addc_r8_i8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t r8_value = (uint8_t)(permutation >> 8);
     uint8_t i8 = permutation & 0xff;
     uint8_t ingoing_cf = (uint8_t)(permutation >> 16);
@@ -431,7 +431,7 @@ static bool test_opcodes_addc_r8_i8(int r8, int permutation, char *buffer, test_
     return false;
 }
 
-static bool test_opcodes_shl_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_shl_r8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t r8_value = (uint8_t)permutation;
 
     if (after == NULL) {
@@ -485,7 +485,7 @@ static bool test_opcodes_shl_r8(int r8, int permutation, char *buffer, test_opco
     return false;
 }
 
-static bool test_opcodes_shr_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_shr_r8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t r8_value = (uint8_t)permutation;
 
     if (after == NULL) {
@@ -539,7 +539,7 @@ static bool test_opcodes_shr_r8(int r8, int permutation, char *buffer, test_opco
     return false;
 }
 
-static bool test_opcodes_jmp_i16(int data, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_jmp_i16(int data, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 17));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -560,7 +560,7 @@ static bool test_opcodes_jmp_i16(int data, int permutation, char *buffer, test_o
     return false;
 }
 
-static bool test_opcodes_jmp_r16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_jmp_r16(int r16_h, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 19));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -581,7 +581,7 @@ static bool test_opcodes_jmp_r16(int r16_h, int permutation, char *buffer, test_
     return false;
 }
 
-static bool test_opcodes_jmp_i16_conditional(int flags_0_1, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_jmp_i16_conditional(int flags_0_1, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 17));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -618,7 +618,7 @@ static bool test_opcodes_jmp_i16_conditional(int flags_0_1, int permutation, cha
     return false;
 }
 
-static bool test_opcodes_jal_r16_i16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_jal_r16_i16(int r16_h, int permutation, char *buffer, test_State *before, test_State *after) {
     srand((uint32_t)(permutation + 33));
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
@@ -649,7 +649,7 @@ static bool test_opcodes_jal_r16_i16(int r16_h, int permutation, char *buffer, t
     return false;
 }
 
-static bool test_opcodes_push_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_push_r8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     if (after == NULL) {
         before->mem[0xfff0 | C_SP] = (uint8_t)permutation + 1;
         before->mem[0xfff0 | r8] = (uint8_t)permutation;
@@ -681,7 +681,7 @@ static bool test_opcodes_push_r8(int r8, int permutation, char *buffer, test_opc
     return false;
 }
 
-static bool test_opcodes_push_r16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_push_r16(int r16_h, int permutation, char *buffer, test_State *before, test_State *after) {
     if (after == NULL) {
         srand((uint32_t)(permutation + 37));
 
@@ -724,7 +724,7 @@ static bool test_opcodes_push_r16(int r16_h, int permutation, char *buffer, test
     return false;
 }
 
-static bool test_opcodes_pop_r8(int r8, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_pop_r8(int r8, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t i8 = (uint8_t)permutation;
 
     if (after == NULL) {
@@ -760,7 +760,7 @@ static bool test_opcodes_pop_r8(int r8, int permutation, char *buffer, test_opco
     return false;
 }
 
-static bool test_opcodes_pop_r16(int r16_h, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_pop_r16(int r16_h, int permutation, char *buffer, test_State *before, test_State *after) {
     uint16_t i16 = (uint16_t)(0xab00 | permutation);
 
     if (after == NULL) {
@@ -800,7 +800,7 @@ static bool test_opcodes_pop_r16(int r16_h, int permutation, char *buffer, test_
     return false;
 }
 
-static bool test_opcodes_ld_at_r16_inc_r8(int data, int permutation, char *buffer, test_opcodes_State *before, test_opcodes_State *after) {
+static bool test_instruction_ld_at_r16_inc_r8(int data, int permutation, char *buffer, test_State *before, test_State *after) {
     uint8_t r16_h = (uint8_t)data >> 4;
     uint8_t r8 = data & 0xf;
 
@@ -843,121 +843,121 @@ static bool test_opcodes_ld_at_r16_inc_r8(int data, int permutation, char *buffe
     return false;
 }
 
-static test_opcodes_Test_case test_cases[] = {
-    { .o = NOP, .name = MNEMONIC_NOP, .test = test_opcodes_nop, .data = 0 },
+static test_Test_case test_cases[] = {
+    { .i = NOP, .name = MNEMONIC_NOP, .test = test_instruction_nop, .data = 0 },
 
-    { .o = LD_A_I8, .name = MNEMONIC_LD_A_I8, .test = test_opcodes_ld_r8_i8, .data = C_A },
-    { .o = LD_B_I8, .name = MNEMONIC_LD_B_I8, .test = test_opcodes_ld_r8_i8, .data = C_B },
-    { .o = LD_C_I8, .name = MNEMONIC_LD_C_I8, .test = test_opcodes_ld_r8_i8, .data = C_C },
-    { .o = LD_D_I8, .name = MNEMONIC_LD_D_I8, .test = test_opcodes_ld_r8_i8, .data = C_D },
+    { .i = LD_A_I8, .name = MNEMONIC_LD_A_I8, .test = test_instruction_ld_r8_i8, .data = C_A },
+    { .i = LD_B_I8, .name = MNEMONIC_LD_B_I8, .test = test_instruction_ld_r8_i8, .data = C_B },
+    { .i = LD_C_I8, .name = MNEMONIC_LD_C_I8, .test = test_instruction_ld_r8_i8, .data = C_C },
+    { .i = LD_D_I8, .name = MNEMONIC_LD_D_I8, .test = test_instruction_ld_r8_i8, .data = C_D },
 
-    { .o = LD_A_B, .name = MNEMONIC_LD_A_B, .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_B },
-    { .o = LD_A_C, .name = MNEMONIC_LD_A_C, .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_C },
-    { .o = LD_A_D, .name = MNEMONIC_LD_A_D, .test = test_opcodes_ld_r8_r8, .data = C_A << 4 | C_D },
+    { .i = LD_A_B, .name = MNEMONIC_LD_A_B, .test = test_instruction_ld_r8_r8, .data = C_A << 4 | C_B },
+    { .i = LD_A_C, .name = MNEMONIC_LD_A_C, .test = test_instruction_ld_r8_r8, .data = C_A << 4 | C_C },
+    { .i = LD_A_D, .name = MNEMONIC_LD_A_D, .test = test_instruction_ld_r8_r8, .data = C_A << 4 | C_D },
 
-    { .o = LD_B_A, .name = MNEMONIC_LD_B_A, .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_A },
-    { .o = LD_B_C, .name = MNEMONIC_LD_B_C, .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_C },
-    { .o = LD_B_D, .name = MNEMONIC_LD_B_D, .test = test_opcodes_ld_r8_r8, .data = C_B << 4 | C_D },
+    { .i = LD_B_A, .name = MNEMONIC_LD_B_A, .test = test_instruction_ld_r8_r8, .data = C_B << 4 | C_A },
+    { .i = LD_B_C, .name = MNEMONIC_LD_B_C, .test = test_instruction_ld_r8_r8, .data = C_B << 4 | C_C },
+    { .i = LD_B_D, .name = MNEMONIC_LD_B_D, .test = test_instruction_ld_r8_r8, .data = C_B << 4 | C_D },
 
-    { .o = LD_C_A, .name = MNEMONIC_LD_C_A, .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_A },
-    { .o = LD_C_B, .name = MNEMONIC_LD_C_B, .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_B },
-    { .o = LD_C_D, .name = MNEMONIC_LD_C_D, .test = test_opcodes_ld_r8_r8, .data = C_C << 4 | C_D },
+    { .i = LD_C_A, .name = MNEMONIC_LD_C_A, .test = test_instruction_ld_r8_r8, .data = C_C << 4 | C_A },
+    { .i = LD_C_B, .name = MNEMONIC_LD_C_B, .test = test_instruction_ld_r8_r8, .data = C_C << 4 | C_B },
+    { .i = LD_C_D, .name = MNEMONIC_LD_C_D, .test = test_instruction_ld_r8_r8, .data = C_C << 4 | C_D },
 
-    { .o = LD_D_A, .name = MNEMONIC_LD_D_A, .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_A },
-    { .o = LD_D_B, .name = MNEMONIC_LD_D_B, .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_B },
-    { .o = LD_D_C, .name = MNEMONIC_LD_D_C, .test = test_opcodes_ld_r8_r8, .data = C_D << 4 | C_C },
+    { .i = LD_D_A, .name = MNEMONIC_LD_D_A, .test = test_instruction_ld_r8_r8, .data = C_D << 4 | C_A },
+    { .i = LD_D_B, .name = MNEMONIC_LD_D_B, .test = test_instruction_ld_r8_r8, .data = C_D << 4 | C_B },
+    { .i = LD_D_C, .name = MNEMONIC_LD_D_C, .test = test_instruction_ld_r8_r8, .data = C_D << 4 | C_C },
 
-    { .o = LD_I_I16, .name = MNEMONIC_LD_I_I16, .test = test_opcodes_ld_r16_i16, .data = C_IH },
-    { .o = LD_J_I16, .name = MNEMONIC_LD_J_I16, .test = test_opcodes_ld_r16_i16, .data = C_JH },
-    { .o = LD_K_I16, .name = MNEMONIC_LD_K_I16, .test = test_opcodes_ld_r16_i16, .data = C_KH },
+    { .i = LD_I_I16, .name = MNEMONIC_LD_I_I16, .test = test_instruction_ld_r16_i16, .data = C_IH },
+    { .i = LD_J_I16, .name = MNEMONIC_LD_J_I16, .test = test_instruction_ld_r16_i16, .data = C_JH },
+    { .i = LD_K_I16, .name = MNEMONIC_LD_K_I16, .test = test_instruction_ld_r16_i16, .data = C_KH },
 
-    { .o = LD_A_AT_I16, .name = MNEMONIC_LD_A_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_A },
-    { .o = LD_B_AT_I16, .name = MNEMONIC_LD_B_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_B },
-    { .o = LD_C_AT_I16, .name = MNEMONIC_LD_C_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_C },
-    { .o = LD_D_AT_I16, .name = MNEMONIC_LD_D_AT_I16, .test = test_opcodes_ld_r8_at_i16, .data = C_D },
+    { .i = LD_A_AT_I16, .name = MNEMONIC_LD_A_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_A },
+    { .i = LD_B_AT_I16, .name = MNEMONIC_LD_B_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_B },
+    { .i = LD_C_AT_I16, .name = MNEMONIC_LD_C_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_C },
+    { .i = LD_D_AT_I16, .name = MNEMONIC_LD_D_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_D },
 
-    { .o = LD_A_AT_AT_I16, .name = MNEMONIC_LD_A_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_A },
-    { .o = LD_B_AT_AT_I16, .name = MNEMONIC_LD_B_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_B },
-    { .o = LD_C_AT_AT_I16, .name = MNEMONIC_LD_C_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_C },
-    { .o = LD_D_AT_AT_I16, .name = MNEMONIC_LD_D_AT_AT_I16, .test = test_opcodes_ld_r8_at_at_i16, .data = C_D },
+    { .i = LD_A_AT_AT_I16, .name = MNEMONIC_LD_A_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_A },
+    { .i = LD_B_AT_AT_I16, .name = MNEMONIC_LD_B_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_B },
+    { .i = LD_C_AT_AT_I16, .name = MNEMONIC_LD_C_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_C },
+    { .i = LD_D_AT_AT_I16, .name = MNEMONIC_LD_D_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_D },
 
-    { .o = LD_A_AT_I, .name = MNEMONIC_LD_A_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_IH },
-    { .o = LD_B_AT_I, .name = MNEMONIC_LD_B_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_IH },
-    { .o = LD_C_AT_I, .name = MNEMONIC_LD_C_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_IH },
-    { .o = LD_D_AT_I, .name = MNEMONIC_LD_D_AT_I, .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_IH },
+    { .i = LD_A_AT_I, .name = MNEMONIC_LD_A_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_A << 4 | C_IH },
+    { .i = LD_B_AT_I, .name = MNEMONIC_LD_B_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_B << 4 | C_IH },
+    { .i = LD_C_AT_I, .name = MNEMONIC_LD_C_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_C << 4 | C_IH },
+    { .i = LD_D_AT_I, .name = MNEMONIC_LD_D_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_D << 4 | C_IH },
 
-    { .o = LD_A_AT_J, .name = MNEMONIC_LD_A_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_JH },
-    { .o = LD_B_AT_J, .name = MNEMONIC_LD_B_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_JH },
-    { .o = LD_C_AT_J, .name = MNEMONIC_LD_C_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_JH },
-    { .o = LD_D_AT_J, .name = MNEMONIC_LD_D_AT_J, .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_JH },
+    { .i = LD_A_AT_J, .name = MNEMONIC_LD_A_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_A << 4 | C_JH },
+    { .i = LD_B_AT_J, .name = MNEMONIC_LD_B_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_B << 4 | C_JH },
+    { .i = LD_C_AT_J, .name = MNEMONIC_LD_C_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_C << 4 | C_JH },
+    { .i = LD_D_AT_J, .name = MNEMONIC_LD_D_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_D << 4 | C_JH },
 
-    { .o = LD_A_AT_K, .name = MNEMONIC_LD_A_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_A << 4 | C_KH },
-    { .o = LD_B_AT_K, .name = MNEMONIC_LD_B_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_B << 4 | C_KH },
-    { .o = LD_C_AT_K, .name = MNEMONIC_LD_C_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_C << 4 | C_KH },
-    { .o = LD_D_AT_K, .name = MNEMONIC_LD_D_AT_K, .test = test_opcodes_ld_r8_at_r16, .data = C_D << 4 | C_KH },
+    { .i = LD_A_AT_K, .name = MNEMONIC_LD_A_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_A << 4 | C_KH },
+    { .i = LD_B_AT_K, .name = MNEMONIC_LD_B_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_B << 4 | C_KH },
+    { .i = LD_C_AT_K, .name = MNEMONIC_LD_C_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_C << 4 | C_KH },
+    { .i = LD_D_AT_K, .name = MNEMONIC_LD_D_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_D << 4 | C_KH },
 
-    { .o = LD_A_AT_I_INC, .name = MNEMONIC_LD_A_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_IH },
-    { .o = LD_B_AT_I_INC, .name = MNEMONIC_LD_B_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_IH },
-    { .o = LD_C_AT_I_INC, .name = MNEMONIC_LD_C_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_IH },
-    { .o = LD_D_AT_I_INC, .name = MNEMONIC_LD_D_AT_I_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_IH },
+    { .i = LD_A_AT_I_INC, .name = MNEMONIC_LD_A_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_A << 4 | C_IH },
+    { .i = LD_B_AT_I_INC, .name = MNEMONIC_LD_B_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_B << 4 | C_IH },
+    { .i = LD_C_AT_I_INC, .name = MNEMONIC_LD_C_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_C << 4 | C_IH },
+    { .i = LD_D_AT_I_INC, .name = MNEMONIC_LD_D_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_D << 4 | C_IH },
 
-    { .o = LD_A_AT_J_INC, .name = MNEMONIC_LD_A_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_JH },
-    { .o = LD_B_AT_J_INC, .name = MNEMONIC_LD_B_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_JH },
-    { .o = LD_C_AT_J_INC, .name = MNEMONIC_LD_C_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_JH },
-    { .o = LD_D_AT_J_INC, .name = MNEMONIC_LD_D_AT_J_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_JH },
+    { .i = LD_A_AT_J_INC, .name = MNEMONIC_LD_A_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_A << 4 | C_JH },
+    { .i = LD_B_AT_J_INC, .name = MNEMONIC_LD_B_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_B << 4 | C_JH },
+    { .i = LD_C_AT_J_INC, .name = MNEMONIC_LD_C_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_C << 4 | C_JH },
+    { .i = LD_D_AT_J_INC, .name = MNEMONIC_LD_D_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_D << 4 | C_JH },
 
-    { .o = LD_A_AT_K_INC, .name = MNEMONIC_LD_A_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_A << 4 | C_KH },
-    { .o = LD_B_AT_K_INC, .name = MNEMONIC_LD_B_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_B << 4 | C_KH },
-    { .o = LD_C_AT_K_INC, .name = MNEMONIC_LD_C_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
-    { .o = LD_D_AT_K_INC, .name = MNEMONIC_LD_D_AT_K_INC, .test = test_opcodes_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
+    { .i = LD_A_AT_K_INC, .name = MNEMONIC_LD_A_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_A << 4 | C_KH },
+    { .i = LD_B_AT_K_INC, .name = MNEMONIC_LD_B_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_B << 4 | C_KH },
+    { .i = LD_C_AT_K_INC, .name = MNEMONIC_LD_C_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
+    { .i = LD_D_AT_K_INC, .name = MNEMONIC_LD_D_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
 
-    { .o = LD_AT_I16_A, .name = MNEMONIC_LD_AT_I16_A, .test = test_opcodes_ld_at_i16_r8, .data = C_A },
-    { .o = LD_AT_I16_B, .name = MNEMONIC_LD_AT_I16_B, .test = test_opcodes_ld_at_i16_r8, .data = C_B },
-    { .o = LD_AT_I16_C, .name = MNEMONIC_LD_AT_I16_C, .test = test_opcodes_ld_at_i16_r8, .data = C_C },
-    { .o = LD_AT_I16_D, .name = MNEMONIC_LD_AT_I16_D, .test = test_opcodes_ld_at_i16_r8, .data = C_D },
+    { .i = LD_AT_I16_A, .name = MNEMONIC_LD_AT_I16_A, .test = test_instruction_ld_at_i16_r8, .data = C_A },
+    { .i = LD_AT_I16_B, .name = MNEMONIC_LD_AT_I16_B, .test = test_instruction_ld_at_i16_r8, .data = C_B },
+    { .i = LD_AT_I16_C, .name = MNEMONIC_LD_AT_I16_C, .test = test_instruction_ld_at_i16_r8, .data = C_C },
+    { .i = LD_AT_I16_D, .name = MNEMONIC_LD_AT_I16_D, .test = test_instruction_ld_at_i16_r8, .data = C_D },
 
-    { .o = LD_AT_I_INC_A, .name = MNEMONIC_LD_AT_I_INC_A, .test = test_opcodes_ld_at_r16_inc_r8, .data = C_IH << 4 | C_A },
+    { .i = LD_AT_I_INC_A, .name = MNEMONIC_LD_AT_I_INC_A, .test = test_instruction_ld_at_r16_inc_r8, .data = C_IH << 4 | C_A },
 
-    { .o = SHL_A, .name = MNEMONIC_SHL_A, .test = test_opcodes_shl_r8, .data = C_A },
+    { .i = SHL_A, .name = MNEMONIC_SHL_A, .test = test_instruction_shl_r8, .data = C_A },
 
-    { .o = SHR_A, .name = MNEMONIC_SHR_A, .test = test_opcodes_shr_r8, .data = C_A },
+    { .i = SHR_A, .name = MNEMONIC_SHR_A, .test = test_instruction_shr_r8, .data = C_A },
 
-    { .o = ADD_A_I8, .name = MNEMONIC_ADD_A_I8, .test = test_opcodes_add_r8_i8, .data = C_A },
+    { .i = ADD_A_I8, .name = MNEMONIC_ADD_A_I8, .test = test_instruction_add_r8_i8, .data = C_A },
 
-    { .o = ADDC_A_I8, .name = MNEMONIC_ADDC_A_I8, .test = test_opcodes_addc_r8_i8, .data = C_A },
+    { .i = ADDC_A_I8, .name = MNEMONIC_ADDC_A_I8, .test = test_instruction_addc_r8_i8, .data = C_A },
 
-    { .o = JMP_I16, .name = MNEMONIC_JMP_I16, .test = test_opcodes_jmp_i16, .data = 0 },
+    { .i = JMP_I16, .name = MNEMONIC_JMP_I16, .test = test_instruction_jmp_i16, .data = 0 },
 
-    { .o = JMP_K, .name = MNEMONIC_JMP_K, .test = test_opcodes_jmp_r16, .data = C_KH },
+    { .i = JMP_K, .name = MNEMONIC_JMP_K, .test = test_instruction_jmp_r16, .data = C_KH },
 
-    { .o = JZ_I16,  .name = MNEMONIC_JZ_I16,  .test = test_opcodes_jmp_i16_conditional, .data =   0 << 4 | F_Z },
-    { .o = JNZ_I16, .name = MNEMONIC_JNZ_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_Z << 4 | 0 },
-    { .o = JC_I16,  .name = MNEMONIC_JC_I16,  .test = test_opcodes_jmp_i16_conditional, .data =   0 << 4 | F_C },
-    { .o = JNC_I16, .name = MNEMONIC_JNC_I16, .test = test_opcodes_jmp_i16_conditional, .data = F_C << 4 | 0 },
+    { .i = JZ_I16,  .name = MNEMONIC_JZ_I16,  .test = test_instruction_jmp_i16_conditional, .data =   0 << 4 | F_Z },
+    { .i = JNZ_I16, .name = MNEMONIC_JNZ_I16, .test = test_instruction_jmp_i16_conditional, .data = F_Z << 4 | 0 },
+    { .i = JC_I16,  .name = MNEMONIC_JC_I16,  .test = test_instruction_jmp_i16_conditional, .data =   0 << 4 | F_C },
+    { .i = JNC_I16, .name = MNEMONIC_JNC_I16, .test = test_instruction_jmp_i16_conditional, .data = F_C << 4 | 0 },
 
-    { .o = JAL_K_I16, .name = MNEMONIC_JAL_K_I16, .test = test_opcodes_jal_r16_i16, .data = C_KH },
+    { .i = JAL_K_I16, .name = MNEMONIC_JAL_K_I16, .test = test_instruction_jal_r16_i16, .data = C_KH },
 
-    { .o = PUSH_A, .name = MNEMONIC_PUSH_A, .test = test_opcodes_push_r8, .data = C_A },
+    { .i = PUSH_A, .name = MNEMONIC_PUSH_A, .test = test_instruction_push_r8, .data = C_A },
 
-    { .o = PUSH_K, .name = MNEMONIC_PUSH_K, .test = test_opcodes_push_r16, .data = C_KH },
+    { .i = PUSH_K, .name = MNEMONIC_PUSH_K, .test = test_instruction_push_r16, .data = C_KH },
 
-    { .o = POP_A, .name = MNEMONIC_POP_A, .test = test_opcodes_pop_r8, .data = C_A },
+    { .i = POP_A, .name = MNEMONIC_POP_A, .test = test_instruction_pop_r8, .data = C_A },
 
-    { .o = POP_K, .name = MNEMONIC_POP_K, .test = test_opcodes_pop_r16, .data = C_KH },
+    { .i = POP_K, .name = MNEMONIC_POP_K, .test = test_instruction_pop_r16, .data = C_KH },
 };
 
-static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE], char buffer[8096], test_opcodes_State *state) {
+static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char buffer[8096], test_State *state) {
     uint32_t index = (uint32_t)(
         (((state->mh >> 5) & 1) << 16) |
         ((state->tf & 0xf)      << 12) |
          (state->s              << 8)  |
-          state->o);
+          state->i);
 
-    uint16_t signals = (uint16_t)((rom_opcode2[index] << 8) | rom_opcode1[index]) ^ SIGNALS_ACTIVE_LOW_MASK;
+    uint16_t signals = (uint16_t)((rom_instruction2[index] << 8) | rom_instruction1[index]) ^ SIGNALS_ACTIVE_LOW_MASK;
 
     sprintf(buffer + strlen(buffer), "\n0x%02x: index: 0x%05x signals: 0x%04x\n", state->s, index, signals);
 
-    if (state->o != RESET && state->s == 0 && signals != S0_FETCH) {
+    if (state->i != RESET && state->s == 0 && signals != S0_FETCH) {
         sprintf(buffer + strlen(buffer), "      expected signals at s 0 to be S0_FETCH\n");
         return 2;
     }
@@ -990,10 +990,10 @@ static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[
         return 2;
     };
 
-    if (signals & LD_O) {
-        sprintf(buffer + strlen(buffer), "      LD_O\n");
+    if (signals & LD_I) {
+        sprintf(buffer + strlen(buffer), "      LD_I\n");
 
-        state->o = bus;
+        state->i = bus;
     }
 
     if (signals & LD_T) {
@@ -1058,30 +1058,29 @@ static int test_opcodes_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[
      return state->s == 0 ? 1 : 0;
 }
 
-
-static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_SIZE_OPCODE], uint8_t rom_opcode2[ROM_SIZE_OPCODE]) {
+static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION]) {
     char buffer[0x2000];
 
-    test_opcodes_State state = {0};
+    test_State state = {0};
 
     state.mem[0xfff0 | C_FF] = 0xab;
     state.mem[0xfff0 | C_SP] = 0xba;
 
     int steps = 0;
 
-    state.o = RESET;
+    state.i = RESET;
 
     for (;; ++steps) {
         buffer[0] = '\0';
 
-        int error = test_opcodes_step(rom_alu, rom_opcode1, rom_opcode2, buffer, &state);
+        int error = test_step(rom_alu, rom_instruction1, rom_instruction2, buffer, &state);
 
         if (error > 1) {
             fprintf(stderr, "reset failed: %s\n", buffer);
             return 1;
         }
 
-        if (state.o != RESET && error == 1) break;
+        if (state.i != RESET && error == 1) break;
 
         if (state.mh >= 0x20 && state.ml >= 0x02) {
             fprintf(stderr, "reset failed, M too big 0x%02x%02x\n", state.mh, state.ml);
@@ -1103,20 +1102,20 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
 
             if (state.mh == 0xff) state.mh = 0; // prevent overwriting mem registers
 
-            test_opcodes_Test_case test_case = test_cases[i];
+            test_Test_case test_case = test_cases[i];
 
-            state.o = (uint8_t)test_case.o; // To prevent getting stuck in reset opcode
+            state.i = (uint8_t)test_case.i; // To prevent getting stuck in reset instruction
 
             bool last_permutation = test_case.test(test_case.data, permutation, failed_permutation_buffer, &state, NULL);
 
-            state.mem[test_state_M(&state)] = (uint8_t)test_case.o; // The value loaded into O on first step
+            state.mem[test_state_M(&state)] = (uint8_t)test_case.i; // The value loaded into I on first step
 
-            test_opcodes_State orignal_state = state;
+            test_State orignal_state = state;
 
             bool test_failed = false;
 
             for (steps = 0; steps < 0x100; ++steps) {
-                int error = test_opcodes_step(rom_alu, rom_opcode1, rom_opcode2, buffer, &state);
+                int error = test_step(rom_alu, rom_instruction1, rom_instruction2, buffer, &state);
 
                 if (error > 1) {
                     test_failed = true;
@@ -1130,10 +1129,10 @@ static int test_opcodes(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_opcode1[ROM_S
                 sprintf(buffer + strlen(buffer), "\nsteps taken: %d\n\n", steps + 1);
 
                 if (steps > 0xf) {
-                    sprintf(buffer + strlen(buffer), "opcode never finished\n");
+                    sprintf(buffer + strlen(buffer), "instruction never finished\n");
                     test_failed = true;
                 } else if (test_state_M_or_C(&state)) {
-                    sprintf(buffer + strlen(buffer), "opcode never restored mem address to M\n");
+                    sprintf(buffer + strlen(buffer), "instruction never restored mem address to M\n");
                     test_failed = true;
                 } else {
                     test_failed = test_case.test(test_case.data, permutation, buffer, &orignal_state, &state);

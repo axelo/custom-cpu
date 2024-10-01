@@ -1,4 +1,4 @@
-#define S0_FETCH (OE_MEM | LD_O | INC_M)
+#define S0_FETCH (OE_MEM | LD_I | INC_M)
 
 #define M (0 << 4)
 #define C (1 << 4)
@@ -29,8 +29,8 @@
 #include "instructions/pop_r8.inc"
 #include "instructions/pop_r16.inc"
 
-static inline uint16_t signals_instruction(O o, uint8_t s, uint8_t tf, uint8_t m13) {
-    switch (o) {
+static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf, uint8_t m13) {
+    switch (i) {
     case RESET: return instruction_reset(s, m13);
 
     case NOP: return instruction_nop(s);

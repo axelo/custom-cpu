@@ -79,7 +79,7 @@
         </entry>
         <entry>
           <string>lastDataFile</string>
-          <file>/Users/axel/Hobby/research/rom_opcode1.bin</file>
+          <file>/Users/axel/Hobby/research/rom_instruction1.bin</file>
         </entry>
         <entry>
           <string>autoReload</string>
@@ -626,7 +626,7 @@
         </entry>
         <entry>
           <string>lastDataFile</string>
-          <file>/Users/axel/Hobby/research/rom_opcode2.bin</file>
+          <file>/Users/axel/Hobby/research/rom_instruction2.bin</file>
         </entry>
         <entry>
           <string>autoReload</string>
@@ -2740,7 +2740,7 @@
         </entry>
         <entry>
           <string>Label</string>
-          <string>O</string>
+          <string>I</string>
         </entry>
         <entry>
           <string>intFormat</string>
@@ -3008,7 +3008,7 @@
       <elementAttributes>
         <entry>
           <string>Label</string>
-          <string>O</string>
+          <string>I</string>
         </entry>
         <entry>
           <string>Bits</string>
@@ -3071,7 +3071,7 @@
         </entry>
         <entry>
           <string>NetName</string>
-          <string>LD O</string>
+          <string>LD I</string>
         </entry>
       </elementAttributes>
       <pos x="-220" y="900"/>
@@ -3114,7 +3114,7 @@
       <elementAttributes>
         <entry>
           <string>NetName</string>
-          <string>LD O</string>
+          <string>LD I</string>
         </entry>
       </elementAttributes>
       <pos x="480" y="860"/>
