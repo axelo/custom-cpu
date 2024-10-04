@@ -56,8 +56,12 @@
 #define MNEMONIC_LD_AT_I16_C    "ld [{imm:i16}], c"
 #define MNEMONIC_LD_AT_I16_D    "ld [{imm:i16}], d"
 #define MNEMONIC_LD_AT_I_INC_A  "ld [i++], a"
+#define MNEMONIC_LD_AT_J_INC_A  "ld [j++], a"
+#define MNEMONIC_LD_AT_K_INC_A  "ld [k++], a"
+#define MNEMONIC_LD_FLAGS_I8    "ld flags, {imm:i8}"
 #define MNEMONIC_ADD_A_I8       "add a, {imm:i8}"
 #define MNEMONIC_ADDC_A_I8      "addc a, {imm:i8}"
+#define MNEMONIC_SUBC_A_I8      "subc a, {imm:i8}"
 #define MNEMONIC_SHL_A          "shl a"
 #define MNEMONIC_SHR_A          "shr a"
 #define MNEMONIC_JMP_I16        "jmp {imm:i16}"
@@ -180,10 +184,16 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
         case LD_AT_I16_D: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_AT_I16_D); break;
 
         case LD_AT_I_INC_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_AT_I_INC_A); break;
+        case LD_AT_J_INC_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_AT_J_INC_A); break;
+        case LD_AT_K_INC_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_LD_AT_K_INC_A); break;
+
+        case LD_FLAGS_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_LD_FLAGS_I8); break;
 
         case ADD_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_ADD_A_I8); break;
 
         case ADDC_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_ADDC_A_I8); break;
+
+        case SUBC_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_SUBC_A_I8); break;
 
         case SHL_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SHL_A); break;
 

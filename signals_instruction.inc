@@ -18,6 +18,7 @@
 #include "instructions/ld_at_r16_inc_r8.inc"
 #include "instructions/add_r8_i8.inc"
 #include "instructions/addc_r8_i8.inc"
+#include "instructions/subc_r8_i8.inc"
 #include "instructions/shl_r8.inc"
 #include "instructions/shr_r8.inc"
 #include "instructions/jmp_i16.inc"
@@ -106,10 +107,16 @@ static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf,
     case LD_AT_I16_D: return instruction_ld_at_i16_r8(C_D, s);
 
     case LD_AT_I_INC_A: return instruction_ld_at_r16_inc_r8(C_IH, C_IL, C_A, s);
+    case LD_AT_J_INC_A: return instruction_ld_at_r16_inc_r8(C_JH, C_JL, C_A, s);
+    case LD_AT_K_INC_A: return instruction_ld_at_r16_inc_r8(C_KH, C_KL, C_A, s);
+
+    case LD_FLAGS_I8: return instruction_ld_r8_i8(C_F, s);
 
     case ADD_A_I8: return instruction_add_r8_i8(C_A, s);
 
     case ADDC_A_I8: return instruction_addc_r8_i8(C_A, tf, s);
+
+    case SUBC_A_I8: return instruction_subc_r8_i8(C_A, tf, s);
 
     case SHL_A: return instruction_shl_r8(C_A, s);
 

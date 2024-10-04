@@ -9,8 +9,8 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
         switch ((AU)ml) {
         case AU_SHR_F: {
             uint16_t q = mh >> 1;
-            uint8_t zf = (q & 0xff) == 0;
             uint8_t cf = mh & 1;
+            uint8_t zf = (q & 0xff) == 0;
             uint8_t of = 0;
             uint8_t sf = (q >> 7) & 1;
 

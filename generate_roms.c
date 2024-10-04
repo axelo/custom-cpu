@@ -170,10 +170,16 @@ typedef enum {
     LD_AT_I16_D,
 
     LD_AT_I_INC_A,
+    LD_AT_J_INC_A,
+    LD_AT_K_INC_A,
+
+    LD_FLAGS_I8,
 
     ADD_A_I8,
 
     ADDC_A_I8,
+
+    SUBC_A_I8,
 
     SHL_A,
 
@@ -199,12 +205,12 @@ typedef enum {
     POP_K,
 } Instruction;
 
-#include "./signals_alu.inc"
+#include "signals_alu.inc"
 #include "signals_instruction.inc"
-#include "./customasm_ruledef.inc"
+#include "customasm_ruledef.inc"
 
-#include "./test_alu.inc"
-#include "./test_instructions.inc"
+#include "test_alu.inc"
+#include "test_instructions.inc"
 
 static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     FILE *file = fopen(filename, "w");
