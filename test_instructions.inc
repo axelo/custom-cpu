@@ -6,6 +6,8 @@ typedef struct {
     uint8_t c;
     uint8_t t;
     uint8_t tf; // 4 bit
+    uint8_t gpo;
+    uint8_t gpi;
     uint8_t mem[0x10000];
 } test_State;
 
@@ -45,6 +47,7 @@ static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_
 #include "test_instructions/subc_r8_i8.inc"
 #include "test_instructions/shl_r8.inc"
 #include "test_instructions/shr_r8.inc"
+#include "test_instructions/and_r8_i8.inc"
 #include "test_instructions/jmp_i16.inc"
 #include "test_instructions/jmp_r16.inc"
 #include "test_instructions/jmp_i16_conditional.inc"
@@ -53,6 +56,12 @@ static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_
 #include "test_instructions/push_r16.inc"
 #include "test_instructions/pop_r8.inc"
 #include "test_instructions/pop_r16.inc"
+#include "test_instructions/out_i8.inc"
+#include "test_instructions/out_tx_start.inc"
+#include "test_instructions/out_tx.inc"
+#include "test_instructions/out_tx_stop.inc"
+#include "test_instructions/in_rx_start_i16.inc"
+#include "test_instructions/in_rx.inc"
 
 static test_case test_cases[] = {
     { .i = NOP, .name = MNEMONIC_NOP, .test = test_instruction_nop, .data = 0 },
@@ -137,6 +146,8 @@ static test_case test_cases[] = {
 
     { .i = SHR_A, .name = MNEMONIC_SHR_A, .test = test_instruction_shr_r8, .data = C_A },
 
+    { .i = AND_A_I8, .name = MNEMONIC_AND_A_I8, .test = test_instruction_and_r8_i8, .data = C_A },
+
     { .i = ADD_A_I8, .name = MNEMONIC_ADD_A_I8, .test = test_instruction_add_r8_i8, .data = C_A },
 
     { .i = ADDC_A_I8, .name = MNEMONIC_ADDC_A_I8, .test = test_instruction_addc_r8_i8, .data = C_A },
@@ -161,6 +172,15 @@ static test_case test_cases[] = {
     { .i = POP_A, .name = MNEMONIC_POP_A, .test = test_instruction_pop_r8, .data = C_A },
 
     { .i = POP_K, .name = MNEMONIC_POP_K, .test = test_instruction_pop_r16, .data = C_KH },
+
+    { .i = OUT_I8, .name = MNEMONIC_OUT_I8, .test = test_instruction_out_i8, .data = 0 },
+
+    { .i = OUT_TX_START, .name = MNEMONIC_OUT_TX_START, .test = test_instruction_out_tx_start, .data = 0 },
+    { .i = OUT_TX,       .name = MNEMONIC_OUT_TX,       .test = test_instruction_out_tx,       .data = 0 },
+    { .i = OUT_TX_STOP,  .name = MNEMONIC_OUT_TX_STOP,  .test = test_instruction_out_tx_stop,  .data = 0 },
+
+    { .i = IN_RX_START_I16, .name = MNEMONIC_IN_RX_START_I16, .test = test_instruction_in_rx_start_i16, .data = 0 },
+    { .i = IN_RX,           .name = MNEMONIC_IN_RX,           .test = test_instruction_in_rx,           .data = 0 },
 };
 
 static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char** buffer_ptr, test_State* state) {
@@ -204,6 +224,10 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
         bus = rom_alu[alu_index];
 
         buffer += sprintf(buffer, "        OE_ALU: bus = 0x%02x from alu[0x%05x]\n", bus, alu_index);
+    } else if (!(signals & LD_C) && (signals & SEL_C_OE_GPI)) {
+        bus = state->gpi;
+
+        buffer += sprintf(buffer, "        OE_GPI: bus = 0x%02x\n", bus);
     } else {
         buffer +=  sprintf(buffer, "        nothing asserted on the bus\n");
         return 2;
@@ -236,6 +260,11 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
             buffer += sprintf(buffer, "        LD_TF\n");
 
             state->tf = bus & 0xf;
+        }
+
+        if (signals & SEL_C_LD_GPO) {
+            buffer += sprintf(buffer, "        LD_GPO\n");
+            state->gpo = bus;
         }
     }
 

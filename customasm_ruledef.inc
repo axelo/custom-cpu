@@ -64,6 +64,7 @@
 #define MNEMONIC_SUBC_A_I8      "subc a, {imm:i8}"
 #define MNEMONIC_SHL_A          "shl a"
 #define MNEMONIC_SHR_A          "shr a"
+#define MNEMONIC_AND_A_I8       "and a, {imm:i8}"
 #define MNEMONIC_JMP_I16        "jmp {imm:i16}"
 #define MNEMONIC_JMP_K          "jmp k"
 #define MNEMONIC_JZ_I16         "jz {imm:i16}"
@@ -75,6 +76,12 @@
 #define MNEMONIC_PUSH_K         "push k"
 #define MNEMONIC_POP_A          "pop a"
 #define MNEMONIC_POP_K          "pop k"
+#define MNEMONIC_OUT_I8         "out {imm:i8}"
+#define MNEMONIC_OUT_TX_START   "out tx start"
+#define MNEMONIC_OUT_TX         "out tx"
+#define MNEMONIC_OUT_TX_STOP    "out tx stop"
+#define MNEMONIC_IN_RX_START_I16 "in rx start, {imm:i16}"
+#define MNEMONIC_IN_RX          "in rx"
 
 static size_t inline customasm_ruledef_0(size_t size, char ruledef[size], size_t n, int i, const char *mnemonic) {
     n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", mnemonic, " => 0x", i);
@@ -199,6 +206,8 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
 
         case SHR_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SHR_A); break;
 
+        case AND_A_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_AND_A_I8); break;
+
         case JMP_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_JMP_I16); break;
 
         case JMP_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_JMP_K); break;
@@ -217,6 +226,15 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
         case POP_A: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_POP_A); break;
 
         case POP_K: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_POP_K); break;
+
+        case OUT_I8: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_OUT_I8); break;
+
+        case OUT_TX_START: n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_OUT_TX_START); break;
+        case OUT_TX:       n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_OUT_TX); break;
+        case OUT_TX_STOP:  n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_OUT_TX_STOP); break;
+
+        case IN_RX_START_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_IN_RX_START_I16); break;
+        case IN_RX:           n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_IN_RX); break;
 
         default: break;
         }

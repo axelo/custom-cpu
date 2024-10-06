@@ -25,16 +25,43 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
                             (expected_cf << 0));
 
                         if (actual_output != expected_output) {
-                            fprintf(stderr, "flags (0x%02x shr 1) => expected: 0x%02x, actual: 0x%02x\n", ml, expected_output, actual_output);
+                            fprintf(stderr, "flags (0x%02x shr 1) => expected: 0x%02x, actual: 0x%02x\n", mh, expected_output, actual_output);
+                            return 1;
+                        }
+                    } break;
+
+                    case AU_1S_LSB: {
+                        uint8_t expected_output = 0xfe | (mh & 1);
+
+                        if (actual_output != expected_output) {
+                            fprintf(stderr, "0x%02x 1s lsb => expected: 0x%02x, actual: 0x%02x\n", mh, expected_output, actual_output);
                             return 1;
                         }
                     } break;
 
                     case AU_SHR: {
-                        uint8_t expected_output = (uint8_t)((uint8_t)(mh - 1) >> 1);
+                        uint8_t expected_output = (uint8_t)(mh >> 1);
 
                         if (actual_output != expected_output) {
-                            fprintf(stderr, "0x%02x shr 1 => expected: 0x%02x, actual: 0x%02x\n", ml, expected_output, actual_output);
+                            fprintf(stderr, "0x%02x shr 1 => expected: 0x%02x, actual: 0x%02x\n", mh, expected_output, actual_output);
+                            return 1;
+                        }
+                    } break;
+
+                    case AU_SHR_OR_00: {
+                        uint8_t expected_output = (uint8_t)(mh >> 1);
+
+                        if (actual_output != expected_output) {
+                            fprintf(stderr, "0x%02x shr or 0x00 => expected: 0x%02x, actual: 0x%02x\n", mh, expected_output, actual_output);
+                            return 1;
+                        }
+                    } break;
+
+                    case AU_SHR_OR_80: {
+                        uint8_t expected_output = (uint8_t)(mh >> 1) | 0x80;
+
+                        if (actual_output != expected_output) {
+                            fprintf(stderr, "0x%02x shr or 0x80 => expected: 0x%02x, actual: 0x%02x\n", mh, expected_output, actual_output);
                             return 1;
                         }
                     } break;

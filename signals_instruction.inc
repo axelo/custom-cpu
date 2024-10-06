@@ -21,6 +21,7 @@
 #include "instructions/subc_r8_i8.inc"
 #include "instructions/shl_r8.inc"
 #include "instructions/shr_r8.inc"
+#include "instructions/and_r8_i8.inc"
 #include "instructions/jmp_i16.inc"
 #include "instructions/jmp_r16.inc"
 #include "instructions/jmp_i16_conditional.inc"
@@ -29,6 +30,9 @@
 #include "instructions/push_r16.inc"
 #include "instructions/pop_r8.inc"
 #include "instructions/pop_r16.inc"
+#include "instructions/out_i8.inc"
+
+#include "instructions/out_uart_next_bit.inc"
 
 static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf, uint8_t m13) {
     switch (i) {
@@ -122,6 +126,8 @@ static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf,
 
     case SHR_A: return instruction_shr_r8(C_A, s);
 
+    case AND_A_I8: return instruction_and_r8_i8(C_A, s);
+
     case JMP_I16: return instruction_jmp_i16(s);
 
     case JMP_K: return instruction_jmp_r16(C_KH, C_KL, s);
@@ -140,6 +146,15 @@ static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf,
     case POP_A: return instruction_pop_r8(C_A, s);
 
     case POP_K: return instruction_pop_r16(C_KH, C_KL, s);
+
+    case OUT_I8: return instruction_out_i8(s);
+
+    case OUT_TX_START: return instruction_out_tx_start(s);
+    case OUT_TX:       return instruction_out_tx(s);
+    case OUT_TX_STOP:  return instruction_out_tx_stop(s);
+
+    case IN_RX_START_I16: return instruction_in_rx_start_i16(tf, s);
+    case IN_RX:           return instruction_in_rx(tf, s);
 
     default: return OE_T | LD_S;
     }

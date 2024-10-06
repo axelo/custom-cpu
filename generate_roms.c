@@ -48,7 +48,9 @@ https://en.wikipedia.org/wiki/NOR_logic
 #define SEL_C3 (1 << 14)
 #define SEL_C  (1 << 15)
 
-#define SEL_C_LD_TF SEL_C3
+#define SEL_C_OE_GPI SEL_C1
+#define SEL_C_LD_GPO SEL_C2
+#define SEL_C_LD_TF  SEL_C3
 
 #define SIGNALS_ACTIVE_LOW_MASK (LD_C | LD_ML | LD_MH | LD_S | OE_MEM | OE_ALU | OE_T)
 
@@ -58,15 +60,18 @@ typedef enum {
     A_UNARY    = 1,
     A_NAND     = 2,
     A_ADD      = 3,
-    A_ADD_F_CF = 4,
-    A_ADD_F    = 5,
+    A_ADD_F    = 4,
+    A_ADD_F_CF = 5,
     A_OE_MH    = 6,
     A_OE_ML    = 7,
 } A;
 
 typedef enum {
-    AU_SHR_F = 0xff,
-    AU_SHR   = 0x01,
+    AU_SHR_F     = 0x00,
+    AU_1S_LSB    = 0x01,
+    AU_SHR       = 0x02,
+    AU_SHR_OR_00 = 0xfe, // TODO: same as AU_SHR, can we re-use only one?
+    AU_SHR_OR_80 = 0xff,
 } AU;
 
 // constants
@@ -75,7 +80,7 @@ typedef enum {
 #define C_C  0x2
 #define C_D  0x3
 #define C_T  0x4
-#define C_F  A_ADD_F
+#define C_F  A_ADD_F_CF
 #define C_MH A_OE_MH
 #define C_ML A_OE_ML
 #define C_IH 0x8
@@ -185,6 +190,8 @@ typedef enum {
 
     SHR_A,
 
+    AND_A_I8,
+
     JMP_I16,
     JMP_K,
 
@@ -203,6 +210,15 @@ typedef enum {
     POP_A,
 
     POP_K,
+
+    OUT_I8,
+
+    OUT_TX_START,
+    OUT_TX,
+    OUT_TX_STOP,
+
+    IN_RX_START_I16,
+    IN_RX,
 } Instruction;
 
 #include "signals_alu.inc"
@@ -311,12 +327,13 @@ int main(void) {
 
     // test roms
     if (test_alu(rom_alu)) {
-        fprintf(stderr, "test_alu failed\n");
+        fprintf(stderr, "alu tests failed\n");
         return 1;
     }
 
-    if (test_instructions(rom_alu, rom_instruction1, rom_instruction2)) {
-        fprintf(stderr, "test_instructions failed\n");
+    int n_failed_instruction_tests = 0;
+    if ((n_failed_instruction_tests = test_instructions(rom_alu, rom_instruction1, rom_instruction2))) {
+        fprintf(stderr, "%d instruction test(s) failed\n", n_failed_instruction_tests);
         return 1;
     }
 
