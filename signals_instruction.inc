@@ -15,6 +15,7 @@
 #include "instructions/ld_r8_at_r16.inc"
 #include "instructions/ld_r8_at_r16_inc.inc"
 #include "instructions/ld_at_i16_r8.inc"
+#include "instructions/ld_at_r16_r8.inc"
 #include "instructions/ld_at_r16_inc_r8.inc"
 #include "instructions/add_r8_i8.inc"
 #include "instructions/addc_r8_i8.inc"
@@ -32,7 +33,8 @@
 #include "instructions/pop_r16.inc"
 #include "instructions/out_i8.inc"
 
-#include "instructions/out_uart_next_bit.inc"
+#include "instructions/uart.inc"
+#include "instructions/spi.inc"
 
 static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf, uint8_t m13) {
     switch (i) {
@@ -110,6 +112,8 @@ static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf,
     case LD_AT_I16_C: return instruction_ld_at_i16_r8(C_C, s);
     case LD_AT_I16_D: return instruction_ld_at_i16_r8(C_D, s);
 
+    case LD_AT_I_A: return instruction_ld_at_r16_r8(C_IH, C_IL, C_A, s);
+
     case LD_AT_I_INC_A: return instruction_ld_at_r16_inc_r8(C_IH, C_IL, C_A, s);
     case LD_AT_J_INC_A: return instruction_ld_at_r16_inc_r8(C_JH, C_JL, C_A, s);
     case LD_AT_K_INC_A: return instruction_ld_at_r16_inc_r8(C_KH, C_KL, C_A, s);
@@ -155,6 +159,8 @@ static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf,
 
     case IN_RX_START_I16: return instruction_in_rx_start_i16(tf, s);
     case IN_RX:           return instruction_in_rx(tf, s);
+
+    case SPI_NEXT: return instruction_spi_next_slower(tf, s);
 
     default: return OE_T | LD_S;
     }

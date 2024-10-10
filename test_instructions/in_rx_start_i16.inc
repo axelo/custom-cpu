@@ -6,7 +6,7 @@ static bool test_instruction_in_rx_start_i16(int _data, int permutation, char** 
         before->mem[test_state_M(before) + 1] = i16 >> 8;
         before->mem[test_state_M(before) + 2] = i16 & 0xff;
 
-        before->gpi = got_rx_start_bit ? 0xae : 0x0f; // rx is lsb of gpi, active low
+        before->in_rx = got_rx_start_bit ? 0 : 1;
 
         return permutation >= 1;
     }

@@ -5,7 +5,7 @@ static bool test_instruction_push_r16(int r16_h, int permutation, char** buffer_
         before->mem[0xfff0 | C_SP] = (uint8_t)(permutation * 2);
         before->mem[0xfff0 | r16_h] = (uint8_t)rand();
         before->mem[0xfff0 | (r16_h + 1)] = (uint8_t)rand();
-        return permutation >= (0xf0 / 2);
+        return permutation >= (0xf0 / 2) - 1;
     }
 
     if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;

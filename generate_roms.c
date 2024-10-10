@@ -57,32 +57,32 @@ https://en.wikipedia.org/wiki/NOR_logic
 // alu operations
 typedef enum {
     A_BOOT     = 0,
-    A_UNARY    = 1,
-    A_NAND     = 2,
+    A_OE_MH    = 1,
+    A_OE_ML    = 2,
     A_ADD      = 3,
-    A_ADD_F    = 4,
-    A_ADD_F_CF = 5,
-    A_OE_MH    = 6,
-    A_OE_ML    = 7,
+    A_UNARY    = 4,
+    A_NAND     = 5,
+    A_ADD_F    = 6,
+    A_ADD_F_CF = 7,
 } A;
 
 typedef enum {
     AU_SHR_F     = 0x00,
     AU_1S_LSB    = 0x01,
     AU_SHR       = 0x02,
-    AU_SHR_OR_00 = 0xfe, // TODO: same as AU_SHR, can we re-use only one?
+    AU_SHR_OR_00 = 0xfe,
     AU_SHR_OR_80 = 0xff,
 } AU;
 
 // constants
-#define C_A  0x0
-#define C_B  0x1
-#define C_C  0x2
-#define C_D  0x3
-#define C_T  0x4
-#define C_F  A_ADD_F_CF
+#define C_T  0x0
 #define C_MH A_OE_MH
 #define C_ML A_OE_ML
+#define C_A  0x3
+#define C_B  0x4
+#define C_C  0x5
+#define C_D  0x6
+#define C_F  A_ADD_F_CF
 #define C_IH 0x8
 #define C_IL 0x9
 #define C_JH 0xa
@@ -174,6 +174,8 @@ typedef enum {
     LD_AT_I16_C,
     LD_AT_I16_D,
 
+    LD_AT_I_A,
+
     LD_AT_I_INC_A,
     LD_AT_J_INC_A,
     LD_AT_K_INC_A,
@@ -219,6 +221,8 @@ typedef enum {
 
     IN_RX_START_I16,
     IN_RX,
+
+    SPI_NEXT,
 } Instruction;
 
 #include "signals_alu.inc"

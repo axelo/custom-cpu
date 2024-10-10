@@ -4,7 +4,7 @@ static bool test_instruction_in_rx(int _data, int permutation, char **buffer_ptr
     if (after == NULL) {
         if (permutation == 0) before->mem[0xfff0 | C_T] = 'X'; // 0x58 0101 1000
 
-        before->gpi = (u8 >> permutation) & 1;
+        before->in_rx = (u8 >> permutation) & 1;
 
         return permutation >= 7;
     };

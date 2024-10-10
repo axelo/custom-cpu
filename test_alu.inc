@@ -19,6 +19,7 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
                         uint8_t expected_of = 0;
                         uint8_t expected_sf = (uint8_t)(mh >> 1) >> 7;
                         uint8_t expected_output = (uint8_t)(
+                            (expected_sf << 7) |
                             (expected_sf << 3) |
                             (expected_of << 2) |
                             (expected_zf << 1) |
@@ -126,6 +127,7 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
                     uint8_t expected_sf = (q >> 7) & 1;
 
                     uint8_t expected_output = (uint8_t)(
+                        (expected_sf << 7) |
                         (expected_sf << 3) |
                         (expected_of << 2) |
                         (expected_zf << 1) |
@@ -162,6 +164,7 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
                     uint8_t expected_sf = (q >> 7) & 1;
 
                     uint8_t expected_output = (uint8_t)(
+                        (expected_sf << 7) |
                         (expected_sf << 3) |
                         (expected_of << 2) |
                         (expected_zf << 1) |

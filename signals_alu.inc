@@ -14,7 +14,7 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             uint8_t of = 0;
             uint8_t sf = (q >> 7) & 1;
 
-            return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+            return (uint8_t)((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
         }
 
         case AU_1S_LSB: return 0xfe | (mh & 1);
@@ -22,7 +22,6 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
         case AU_SHR: return (uint8_t)(mh >> 1);
 
         case AU_SHR_OR_00: return (uint8_t)(mh >> 1) | 0x00;
-
         case AU_SHR_OR_80: return (uint8_t)(mh >> 1) | 0x80;
         }
     } break;
@@ -41,7 +40,7 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             ? 1 : 0;
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
-        return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+        return (uint8_t)((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
     }
 
     case A_ADD_F_CF: {
@@ -54,7 +53,7 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             ? 1 : 0;
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
-        return (uint8_t)((sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+        return (uint8_t)((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
     }
 
     case A_OE_ML: return (uint8_t)ml;

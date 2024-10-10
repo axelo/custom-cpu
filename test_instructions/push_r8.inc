@@ -2,7 +2,7 @@ static bool test_instruction_push_r8(int r8, int permutation, char** buffer_ptr,
     if (after == NULL) {
         before->mem[0xfff0 | C_SP] = (uint8_t)permutation + 1;
         before->mem[0xfff0 | r8] = (uint8_t)permutation;
-        return permutation >= 0xf0;
+        return permutation >= 0xef;
     }
 
     if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;
