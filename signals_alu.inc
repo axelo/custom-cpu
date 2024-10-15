@@ -2,7 +2,7 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
     switch (alu_op) {
     case A_BOOT: {
         uint16_t address = (uint16_t)((mh << 8) | ml);
-        return address >= ROM_SIZE_BOOT ? 0xab : rom_boot[address];
+        return address >= ROM_SIZE_BOOT ? 0x00 : rom_boot[address];
     }
 
     case A_UNARY: {

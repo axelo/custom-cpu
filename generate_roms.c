@@ -56,9 +56,9 @@ https://en.wikipedia.org/wiki/NOR_logic
 
 // alu operations
 typedef enum {
-    A_BOOT     = 0,
-    A_OE_MH    = 1,
-    A_OE_ML    = 2,
+    A_OE_MH    = 0,
+    A_OE_ML    = 1,
+    A_BOOT     = 2,
     A_ADD      = 3,
     A_UNARY    = 4,
     A_NAND     = 5,
@@ -75,9 +75,9 @@ typedef enum {
 } AU;
 
 // constants
-#define C_T  0x0
 #define C_MH A_OE_MH
 #define C_ML A_OE_ML
+#define C_T  0x2
 #define C_A  0x3
 #define C_B  0x4
 #define C_C  0x5
@@ -222,7 +222,11 @@ typedef enum {
     IN_RX_START_I16,
     IN_RX,
 
-    SPI_NEXT,
+    SPI0_BEGIN,
+    SPI0_NEXT,
+    SPI0_END,
+
+    SPI2_BEGIN,
 } Instruction;
 
 #include "signals_alu.inc"

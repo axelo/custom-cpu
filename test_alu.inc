@@ -3,7 +3,23 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
         int op_index = operation << 8 << 8;
 
         switch ((A)operation) {
-        case A_BOOT: break;
+        case A_BOOT: {
+            for (int ml = 0; ml < 0x100; ++ml) {
+                for (int mh = 0; mh < 0x100; ++mh) {
+                    int m = (mh << 8) | ml;
+
+                    if (m >= ROM_SIZE_BOOT) {
+                        int rom_index = op_index | m;
+                        uint8_t actual_output = rom_alu[rom_index];
+
+                        if (actual_output != 0x00) {
+                            fprintf(stderr, "AU_BOOT when M >= ROM_SIZE_BOOT (0x%04x) => expected: 0x00, actual: 0x%02x\n", m, actual_output);
+                            return 1;
+                        }
+                    }
+                }
+            }
+        } break;
 
         case A_UNARY: {
             for (int ml = 0; ml < 0x100; ++ml) {

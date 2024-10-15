@@ -65,7 +65,7 @@ static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_
 #include "test_instructions/out_tx_stop.inc"
 #include "test_instructions/in_rx_start_i16.inc"
 #include "test_instructions/in_rx.inc"
-#include "test_instructions/spi_next.inc"
+#include "test_instructions/spi0_next.inc"
 
 static test_case test_cases[] = {
     { .i = NOP, .name = MNEMONIC_NOP, .test = test_instruction_nop, .data = 0 },
@@ -188,7 +188,9 @@ static test_case test_cases[] = {
     { .i = IN_RX_START_I16, .name = MNEMONIC_IN_RX_START_I16, .test = test_instruction_in_rx_start_i16, .data = 0 },
     { .i = IN_RX,           .name = MNEMONIC_IN_RX,           .test = test_instruction_in_rx,           .data = 0 },
 
-    { .i = SPI_NEXT, .name = MNEMONIC_SPI_NEXT, .test = test_instruction_spi_next, .data = 0 },
+    { .i = SPI0_NEXT, .name = MNEMONIC_SPI0_NEXT, .test = test_instruction_spi0_next, .data = 0 },
+
+    { .i = SPI2_BEGIN, .name = MNEMONIC_SPI2_BEGIN, .test = test_instruction_spi2_begin, .data = 0 },
 };
 
 static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char** buffer_ptr, test_State* state) {
@@ -251,6 +253,11 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
         buffer += sprintf(buffer, "        LD_T\n");
 
         state->t = bus;
+
+        state->gpi = (uint8_t)(
+            (((state->tf >> 3) & 1) << 7) | // this is probably unnecessary
+            ((state->in_miso & 1)   << 1) |
+            ((state->in_rx & 1)     << 0));
     }
 
     if (signals & LD_MEM) {
@@ -260,17 +267,12 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
     }
 
     if (signals & LD_C) {
-        buffer += sprintf(buffer, "        LD_C: sel C=0x%x sel M/C=%d\n", (signals >> 11) & 0xf, signals >> 11 >> 4);
+        buffer += sprintf(buffer, "        LD_C: sel C=0x%x sel M/C=%d sel SCLK=%d\n", (signals >> 11) & 0xf, signals >> 11 >> 4, (signals >> 11 >> 3) & 1);
 
         state->c = signals >> 11;
-
-        state->gpi = (uint8_t)(
-            (((state->tf >> 3) & 1) << 7) | // this is probably unnecessary
-            ((state->in_miso & 1)   << 1) |
-            ((state->in_rx & 1)     << 0));
     } else {
         if (signals & SEL_C_LD_TF) {
-            buffer += sprintf(buffer, "        LD_TF\n");
+            buffer += sprintf(buffer, "        LD_TF: sel MOSI=%d\n", bus >> 7);
 
             state->tf = (uint8_t)((bus >> 7) << 3) | (bus & 0x7);
         }
@@ -327,8 +329,14 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
 
     test_State state = {0};
 
-    state.mem[0xfff0 | C_FF] = 0xab;
-    state.mem[0xfff0 | C_SP] = 0xba;
+    for (int i = 0; i < 0x10000; ++i) {
+        state.mem[i] = i & 1 ? 0xab : 0xba;
+    }
+
+    state.i  = 0; // reset hooked up
+    state.s  = 0; // reset hooked up
+    state.ml = 0; // reset hooked up
+    state.mh = 0; // reset hooked up
 
     int steps = 0;
 

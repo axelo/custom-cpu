@@ -80,7 +80,7 @@ static inline uint16_t instruction_in_rx(uint8_t tf, uint8_t s) {
     case 0x3: return OE_ALU       | LD_MEM                 | LD_CSEL(C_FF | C);
     case 0x4: return OE_MEM       | LD_ML | LD_MH          | LD_CSEL(A_ADD | C);
     case 0x5: return OE_ALU       | LD_ML                  | LD_CSEL(C_T | C);     // ML = 0xfe
-    case 0x6: return OE_MEM       | LD_MH;                                         // MH = mem[C_T]
+    case 0x6: return OE_MEM       | LD_MH | LD_T;                                  // MH = mem[C_T], LD_T = LD_GPI
     case 0x7: return SEL_C_OE_GPI | SEL_C_LD_TF;
     case 0x8: return OE_T         | ((tf & 1) ? INC_M : 0) | LD_CSEL(A_UNARY | C); // ML = 0xfe or 0xff
     case 0x9: return OE_ALU       | LD_T                   | LD_CSEL(C_T | C);

@@ -160,7 +160,11 @@ static inline uint16_t signals_instruction(Instruction i, uint8_t s, uint8_t tf,
     case IN_RX_START_I16: return instruction_in_rx_start_i16(tf, s);
     case IN_RX:           return instruction_in_rx(tf, s);
 
-    case SPI_NEXT: return instruction_spi_next_slower(tf, s);
+    case SPI0_BEGIN: return instruction_spi0_begin(s);
+    case SPI0_NEXT:  return instruction_spi0_next_slower(tf, s);
+    case SPI0_END:   return instruction_spi0_end(s);
+
+    case SPI2_BEGIN: return instruction_spi2_begin(s);
 
     default: return OE_T | LD_S;
     }

@@ -83,7 +83,10 @@
 #define MNEMONIC_OUT_TX_STOP     "out tx stop"
 #define MNEMONIC_IN_RX_START_I16 "in rx start, {imm:i16}"
 #define MNEMONIC_IN_RX           "in rx"
-#define MNEMONIC_SPI_NEXT        "spi next"
+#define MNEMONIC_SPI0_BEGIN      "spi0 begin, {imm:i8}"
+#define MNEMONIC_SPI0_NEXT       "spi0 next"
+#define MNEMONIC_SPI0_END        "spi0 end"
+#define MNEMONIC_SPI2_BEGIN      "spi2 begin, {imm:i8}"
 
 static size_t inline customasm_ruledef_0(size_t size, char ruledef[size], size_t n, int i, const char *mnemonic) {
     n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", mnemonic, " => 0x", i);
@@ -240,7 +243,11 @@ static size_t customasm_ruledef(size_t size, char ruledef[size]) {
         case IN_RX_START_I16: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_IN_RX_START_I16); break;
         case IN_RX:           n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_IN_RX); break;
 
-        case SPI_NEXT:  n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SPI_NEXT); break;
+        case SPI0_BEGIN: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_SPI0_BEGIN); break;
+        case SPI0_NEXT:  n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SPI0_NEXT); break;
+        case SPI0_END:   n = customasm_ruledef_0(size, ruledef, n, i, MNEMONIC_SPI0_END); break;
+
+        case SPI2_BEGIN: n = customasm_ruledef_imm(size, ruledef, n, i, MNEMONIC_SPI2_BEGIN); break;
 
         default: break;
         }
