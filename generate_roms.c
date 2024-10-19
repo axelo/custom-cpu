@@ -261,43 +261,28 @@ static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
 
 int main(void) {
     // read boot rom
-    uint8_t rom_boot[ROM_SIZE_BOOT] = {
-        LD_A_I8, 0x0a,
-        LD_B_I8, 0x0b,
-        LD_C_I8, 0x0c,
-        LD_D_I8, 0x0d,
-
-        LD_A_B,
-        LD_A_C,
-        LD_A_D,
-        LD_A_I8, 0x0a,
-
-        LD_B_A,
-        LD_B_C,
-        LD_B_D,
-        LD_B_I8, 0x0b,
-
-        LD_C_A,
-        LD_C_B,
-        LD_C_D,
-        LD_C_I8, 0x0c,
-
-        LD_D_A,
-        LD_D_B,
-        LD_D_C,
-        LD_D_I8, 0x0d,
-
-        NOP,
-    };
+    uint8_t rom_boot[ROM_SIZE_BOOT];
 
     {
-        int i = 0;
-        for (; i < ROM_SIZE_BOOT; ++i) {
-            if (i > 5 && rom_boot[i] == NOP) break;
-        }
+        int j = 0;
+        int dir = 0;
+        for (int i = 0; i < ROM_SIZE_BOOT; i += 2) {
+            if (dir) {
+                j = j << 1;
+                if (j >= 0x80) {
+                    j = 0x80;
+                    dir = 0;
+                }
+            } else {
+                j = j >> 1;
+                if (j <= 1) {
+                    j = 1;
+                    dir = 1;
+                }
+            }
 
-        for (; i < ROM_SIZE_BOOT; ++i) {
-            rom_boot[i] = NOP;
+            rom_boot[i] = LD_A_I8;
+            rom_boot[i + 1] = (uint8_t)j;
         }
     }
 
