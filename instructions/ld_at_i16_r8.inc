@@ -1,4 +1,4 @@
-static inline uint16_t instruction_ld_at_i16_r8(uint8_t src_r8, uint8_t s) {
+static inline uint16_t instruction_ld_at_i16_r8(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_MEM | LD_T | INC_M | LD_CSEL(C_T | C);    // T = address high, C = C_T
@@ -7,7 +7,7 @@ static inline uint16_t instruction_ld_at_i16_r8(uint8_t src_r8, uint8_t s) {
     case 0x4: return OE_ALU | LD_MEM       | LD_CSEL(C_ML | C);   // mem[C] = MH, C = C_ML
     case 0x5: return OE_ALU | LD_MEM;                             // mem[C] = ML
     case 0x6: return OE_T   | LD_ML        | LD_CSEL(C_T | C);    // ML = T, C = T
-    case 0x7: return OE_MEM | LD_MH        | LD_CSEL(src_r8 | C); // MH = mem[C], C = src_r8
+    case 0x7: return OE_MEM | LD_MH        | LD_CSEL(o.src.r8 | C); // MH = mem[C], C = src_r8
     case 0x8: return OE_MEM | LD_T         | LD_CSEL(M);          // T = mem[C], C = M
     case 0x9: return OE_T   | LD_MEM       | LD_CSEL(C_MH | C);   // mem[M] = T, C = C_MH
     case 0xa: return OE_MEM | LD_MH        | LD_CSEL(C_ML | C);   // MH = mem[C], C = C_ML

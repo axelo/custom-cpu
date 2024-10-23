@@ -1,5 +1,5 @@
 static bool test_instruction_ld_r8_at_r16_inc(int r8_r16_h, int permutation, char** buffer_ptr, test_State* before, test_State* after) {
-    srand((uint32_t)(permutation + 37));
+    srand((uint32_t)(permutation + 42));
 
     uint8_t r8 = (uint8_t)(r8_r16_h >> 4);
     uint8_t r16_h = r8_r16_h & 0xf;

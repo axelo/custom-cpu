@@ -1,4 +1,4 @@
-static inline uint16_t instruction_spi0_begin(uint8_t s) {
+static inline uint16_t instruction_spi0_begin(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T                    | LD_CSEL(C_FF | C); // SCLK ?, T = wanted GPO, assumes ~SCS disabled
@@ -10,7 +10,7 @@ static inline uint16_t instruction_spi0_begin(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_spi0_end(uint8_t s) {
+static inline uint16_t instruction_spi0_end(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T                   | LD_CSEL(C_F | C);   // SCLK 0 (assumed)
@@ -20,7 +20,7 @@ static inline uint16_t instruction_spi0_end(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_spi0_next_slower(uint8_t tf, uint8_t s) {
+static inline uint16_t instruction_spi0_next_slower(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;                                     // SCLK 0 assumed, ~SCS assumed
     case 0x1: return OE_T                    | LD_CSEL(C_T | C);   // SCLK 0, C = C_T
@@ -28,7 +28,7 @@ static inline uint16_t instruction_spi0_next_slower(uint8_t tf, uint8_t s) {
     case 0x3: return OE_T;                                         // SCLK 0, TF[3] = MOSI
     case 0x4: return OE_T;                                         // SCLK 0, TF[3] = MOSI
     case 0x5: return OE_T   | LD_T           | LD_CSEL(0x8 | C);   // SCLK 0, MISO latched into GPI[1] on next clock
-    case 0x6: return SEL_C_OE_GPI | SEL_C_LD_TF;                   // SCLK 1,TF[1] = MISO (MOSI lost but should have been latched by sub) (LD_T = LD_GPI)
+    case 0x6: return SEL_C_OE_GPI | SEL_C_LD_TF;                   // SCLK 1, TF[1] = MISO (MOSI lost but should have been latched by sub) (LD_T = LD_GPI)
     case 0x7: return OE_T                    | LD_CSEL(C_ML | C);  // SCLK 1
     case 0x8: return OE_ALU | LD_MEM         | LD_CSEL(C_MH | C);  // SCLK 0
     case 0x9: return OE_ALU | LD_MEM         | LD_CSEL(C_T  | C);  // SCLK 0
@@ -44,7 +44,7 @@ static inline uint16_t instruction_spi0_next_slower(uint8_t tf, uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_spi2_begin(uint8_t s) {
+static inline uint16_t instruction_spi2_begin(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;                                         // SCLK ?, assumes ~SCS disabled
     case 0x1: return OE_T                   | LD_CSEL(0x8 | C_T | C);
@@ -63,7 +63,7 @@ static inline uint16_t instruction_spi2_begin(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_spi2_end(uint8_t s) {
+static inline uint16_t instruction_spi2_end(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;                                          // SCLK 1 (assumed)
     case 0x1: return OE_T                   | LD_CSEL(C_FF | C);        // SCLK 1
@@ -83,7 +83,7 @@ static inline uint16_t instruction_spi2_end(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_spi2_next_slower(uint8_t tf, uint8_t s) {
+static inline uint16_t instruction_spi2_next_slower(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;                                     // SCLK 1 assumed, ~SCS assumed
     case 0x1: return OE_T                    | LD_CSEL(0x8 | C_T | C); // SCLK 1, C = C_T

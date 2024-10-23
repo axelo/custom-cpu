@@ -1,8 +1,8 @@
 static bool test_instruction_ld_r8_at_at_i16(int r8, int permutation, char** buffer_ptr, test_State* before, test_State* after) {
-    srand((uint32_t)(permutation + 37));
+    srand((uint32_t)(permutation + 42));
 
-    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
-    uint16_t at_i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
+    uint16_t i16 = (uint16_t)(rand() & 0xff00 & ((uint16_t)~before->mh << 8)) | ((rand() >> 8) & 0xff);
+    uint16_t at_i16 = (uint16_t)(rand() & 0xff00 & ((uint16_t)~(before->ml) << 8)) | ((rand() >> 8) & 0xff);
     uint8_t i8_at_at_i16 = rand() & 0xff;
 
     if (after == NULL) {

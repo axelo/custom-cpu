@@ -3,13 +3,13 @@ static bool test_instruction_jmp_i16_conditional(int flags_0_1, int permutation,
 
     uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
 
-    uint8_t flags = permutation ? (flags_0_1 & 0xf) : ((uint8_t)flags_0_1 >> 4);
-
     if (after == NULL) {
         before->mem[test_state_M(before) + 1] = i16 >> 8;
         before->mem[test_state_M(before) + 2] = i16 & 0xff;
 
-        before->mem[0xfff0 | C_F] = flags;
+        uint8_t flags = permutation ? (flags_0_1 & 0xf) : ((uint8_t)flags_0_1 >> 4);
+
+        before->mem[0xfff0 | C_F] = (uint8_t)~flags; // flags are active low
 
         return permutation >= 1;
     }

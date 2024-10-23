@@ -1,4 +1,4 @@
-static inline uint16_t instruction_jmp_i16(uint8_t s) {
+static inline uint16_t instruction_jmp_i16(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0: return S0_FETCH;
     case 1: return OE_MEM | LD_T  | INC_M;

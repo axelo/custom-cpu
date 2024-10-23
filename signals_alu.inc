@@ -14,7 +14,9 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             uint8_t of = 0;
             uint8_t sf = (q >> 7) & 1;
 
-            return (uint8_t)((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+            uint8_t flags = (uint8_t)~((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+
+            return flags;
         }
 
         case AU_1S_LSB: return 0xfe | (mh & 1);
@@ -40,7 +42,9 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             ? 1 : 0;
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
-        return (uint8_t)((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+        uint8_t flags = (uint8_t)~((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+
+        return flags;
     }
 
     case A_ADD_F_CF: {
@@ -53,7 +57,9 @@ static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, u
             ? 1 : 0;
         uint8_t sf = ((q & 0xff) >> 7) & 1;
 
-        return (uint8_t)((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+        uint8_t flags = (uint8_t)~((sf << 7) | (sf << 3) | (of << 2) | (zf << 1) | (cf << 0));
+
+        return flags;
     }
 
     case A_OE_ML: return (uint8_t)ml;

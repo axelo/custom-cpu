@@ -23,23 +23,23 @@ static bool test_instruction_and_r8_i8(int r8, int permutation, char **buffer_pt
 
     uint8_t flags = after->mem[0xfff0 | C_F];
 
-    if (!(flags & F_C)) {
+    if (!IS_TF_C_SET(flags)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected cf due to adding with 0xff\n");
         return true;
     }
 
-    if (expected_r8_value == 0 && !(flags & F_Z)) {
+    if (expected_r8_value == 0 && !IS_TF_Z_SET(flags)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected zf\n");
         return true;
-    } else if (expected_r8_value != 0 && (flags & F_Z)) {
+    } else if (expected_r8_value != 0 && IS_TF_Z_SET(flags)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected zf cleared\n");
         return true;
     }
 
-    if (expected_r8_value >> 7 && !(flags & F_S)) {
+    if (expected_r8_value >> 7 && !IS_TF_S_SET(flags)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected sf\n");
         return true;
-    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
+    } else if (!(expected_r8_value >> 7) && IS_TF_S_SET(flags)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected sf cleared\n");
         return true;
     }

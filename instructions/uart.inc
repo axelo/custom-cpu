@@ -1,4 +1,4 @@
-static inline uint16_t instruction_out_tx_start(uint8_t s) {
+static inline uint16_t instruction_out_tx_start(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T   |                 LD_CSEL(C_MH | C);  // C = C_MH
@@ -17,7 +17,7 @@ static inline uint16_t instruction_out_tx_start(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_out_tx_stop(uint8_t s) {
+static inline uint16_t instruction_out_tx_stop(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T   |                 LD_CSEL(C_FF | C);  // C = C_MH
@@ -36,7 +36,7 @@ static inline uint16_t instruction_out_tx_stop(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_out_tx(uint8_t s) {
+static inline uint16_t instruction_out_tx(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T   |                 LD_CSEL(C_MH | C);    // C = C_MH
@@ -55,7 +55,7 @@ static inline uint16_t instruction_out_tx(uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_in_rx_start_i16(uint8_t tf, uint8_t s) {
+static inline uint16_t instruction_in_rx_start_i16(Operands o, uint8_t s, uint8_t tf) {
     // assumes rts enbaled - GPO = 0xfe
     // jumps to i16 if start bit found
     switch (s) {
@@ -72,7 +72,7 @@ static inline uint16_t instruction_in_rx_start_i16(uint8_t tf, uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_in_rx(uint8_t tf, uint8_t s) {
+static inline uint16_t instruction_in_rx(Operands o, uint8_t s, uint8_t tf) {
     switch (s) {
     case 0x0: return S0_FETCH;
     case 0x1: return OE_T         |                          LD_CSEL(C_MH | C);    // C = C_MH

@@ -1,27 +1,15 @@
-typedef struct {
-    uint8_t i;
-    uint8_t s; // 4 bit
-    uint8_t ml;
-    uint8_t mh;
-    uint8_t c;
-    uint8_t t;
-    uint8_t tf; // 4 bit
-    uint8_t gpo;
-    uint8_t gpi;
-    uint8_t in_rx; // 1 bit
-    uint8_t in_miso; // 1 bit
-    uint8_t mem[0x10000];
-} test_State;
 
-typedef struct {
-    Instruction i;
-    const char* name;
-    int data;
-    bool (*test)(int, int, char**, test_State*, test_State*);
-} test_case;
 
 #define test_state_M(state) ((uint16_t)(((state)->mh << 8) | (state)->ml))
 #define test_state_M_or_C(state) ((state)->c & 0x10)
+
+static bool test_instruction_not_implemented(int _data, int permutation, char **buffer_ptr, test_State* before, test_State* after) {
+    if (after == NULL) return true;
+
+    fprintf(stderr, "\n  v test not yet implemented v\n");
+
+    return false;
+}
 
 static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_ptr, test_State* before, test_State* after) {
     int pc_diff_actual = test_state_M(after) - test_state_M(before);
@@ -67,132 +55,6 @@ static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_
 #include "test_instructions/in_rx.inc"
 #include "test_instructions/spi0_next.inc"
 
-static test_case test_cases[] = {
-    { .i = NOP, .name = MNEMONIC_NOP, .test = test_instruction_nop, .data = 0 },
-
-    { .i = LD_A_I8, .name = MNEMONIC_LD_A_I8, .test = test_instruction_ld_r8_i8, .data = C_A },
-    { .i = LD_B_I8, .name = MNEMONIC_LD_B_I8, .test = test_instruction_ld_r8_i8, .data = C_B },
-    { .i = LD_C_I8, .name = MNEMONIC_LD_C_I8, .test = test_instruction_ld_r8_i8, .data = C_C },
-    { .i = LD_D_I8, .name = MNEMONIC_LD_D_I8, .test = test_instruction_ld_r8_i8, .data = C_D },
-
-    { .i = LD_A_B, .name = MNEMONIC_LD_A_B, .test = test_instruction_ld_r8_r8, .data = C_A << 4 | C_B },
-    { .i = LD_A_C, .name = MNEMONIC_LD_A_C, .test = test_instruction_ld_r8_r8, .data = C_A << 4 | C_C },
-    { .i = LD_A_D, .name = MNEMONIC_LD_A_D, .test = test_instruction_ld_r8_r8, .data = C_A << 4 | C_D },
-
-    { .i = LD_B_A, .name = MNEMONIC_LD_B_A, .test = test_instruction_ld_r8_r8, .data = C_B << 4 | C_A },
-    { .i = LD_B_C, .name = MNEMONIC_LD_B_C, .test = test_instruction_ld_r8_r8, .data = C_B << 4 | C_C },
-    { .i = LD_B_D, .name = MNEMONIC_LD_B_D, .test = test_instruction_ld_r8_r8, .data = C_B << 4 | C_D },
-
-    { .i = LD_C_A, .name = MNEMONIC_LD_C_A, .test = test_instruction_ld_r8_r8, .data = C_C << 4 | C_A },
-    { .i = LD_C_B, .name = MNEMONIC_LD_C_B, .test = test_instruction_ld_r8_r8, .data = C_C << 4 | C_B },
-    { .i = LD_C_D, .name = MNEMONIC_LD_C_D, .test = test_instruction_ld_r8_r8, .data = C_C << 4 | C_D },
-
-    { .i = LD_D_A, .name = MNEMONIC_LD_D_A, .test = test_instruction_ld_r8_r8, .data = C_D << 4 | C_A },
-    { .i = LD_D_B, .name = MNEMONIC_LD_D_B, .test = test_instruction_ld_r8_r8, .data = C_D << 4 | C_B },
-    { .i = LD_D_C, .name = MNEMONIC_LD_D_C, .test = test_instruction_ld_r8_r8, .data = C_D << 4 | C_C },
-
-    { .i = LD_I_I16, .name = MNEMONIC_LD_I_I16, .test = test_instruction_ld_r16_i16, .data = C_IH },
-    { .i = LD_J_I16, .name = MNEMONIC_LD_J_I16, .test = test_instruction_ld_r16_i16, .data = C_JH },
-    { .i = LD_K_I16, .name = MNEMONIC_LD_K_I16, .test = test_instruction_ld_r16_i16, .data = C_KH },
-
-    { .i = LD_A_AT_I16, .name = MNEMONIC_LD_A_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_A },
-    { .i = LD_B_AT_I16, .name = MNEMONIC_LD_B_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_B },
-    { .i = LD_C_AT_I16, .name = MNEMONIC_LD_C_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_C },
-    { .i = LD_D_AT_I16, .name = MNEMONIC_LD_D_AT_I16, .test = test_instruction_ld_r8_at_i16, .data = C_D },
-
-    { .i = LD_A_AT_AT_I16, .name = MNEMONIC_LD_A_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_A },
-    { .i = LD_B_AT_AT_I16, .name = MNEMONIC_LD_B_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_B },
-    { .i = LD_C_AT_AT_I16, .name = MNEMONIC_LD_C_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_C },
-    { .i = LD_D_AT_AT_I16, .name = MNEMONIC_LD_D_AT_AT_I16, .test = test_instruction_ld_r8_at_at_i16, .data = C_D },
-
-    { .i = LD_A_AT_I, .name = MNEMONIC_LD_A_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_A << 4 | C_IH },
-    { .i = LD_B_AT_I, .name = MNEMONIC_LD_B_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_B << 4 | C_IH },
-    { .i = LD_C_AT_I, .name = MNEMONIC_LD_C_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_C << 4 | C_IH },
-    { .i = LD_D_AT_I, .name = MNEMONIC_LD_D_AT_I, .test = test_instruction_ld_r8_at_r16, .data = C_D << 4 | C_IH },
-
-    { .i = LD_A_AT_J, .name = MNEMONIC_LD_A_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_A << 4 | C_JH },
-    { .i = LD_B_AT_J, .name = MNEMONIC_LD_B_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_B << 4 | C_JH },
-    { .i = LD_C_AT_J, .name = MNEMONIC_LD_C_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_C << 4 | C_JH },
-    { .i = LD_D_AT_J, .name = MNEMONIC_LD_D_AT_J, .test = test_instruction_ld_r8_at_r16, .data = C_D << 4 | C_JH },
-
-    { .i = LD_A_AT_K, .name = MNEMONIC_LD_A_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_A << 4 | C_KH },
-    { .i = LD_B_AT_K, .name = MNEMONIC_LD_B_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_B << 4 | C_KH },
-    { .i = LD_C_AT_K, .name = MNEMONIC_LD_C_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_C << 4 | C_KH },
-    { .i = LD_D_AT_K, .name = MNEMONIC_LD_D_AT_K, .test = test_instruction_ld_r8_at_r16, .data = C_D << 4 | C_KH },
-
-    { .i = LD_A_AT_I_INC, .name = MNEMONIC_LD_A_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_A << 4 | C_IH },
-    { .i = LD_B_AT_I_INC, .name = MNEMONIC_LD_B_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_B << 4 | C_IH },
-    { .i = LD_C_AT_I_INC, .name = MNEMONIC_LD_C_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_C << 4 | C_IH },
-    { .i = LD_D_AT_I_INC, .name = MNEMONIC_LD_D_AT_I_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_D << 4 | C_IH },
-
-    { .i = LD_A_AT_J_INC, .name = MNEMONIC_LD_A_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_A << 4 | C_JH },
-    { .i = LD_B_AT_J_INC, .name = MNEMONIC_LD_B_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_B << 4 | C_JH },
-    { .i = LD_C_AT_J_INC, .name = MNEMONIC_LD_C_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_C << 4 | C_JH },
-    { .i = LD_D_AT_J_INC, .name = MNEMONIC_LD_D_AT_J_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_D << 4 | C_JH },
-
-    { .i = LD_A_AT_K_INC, .name = MNEMONIC_LD_A_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_A << 4 | C_KH },
-    { .i = LD_B_AT_K_INC, .name = MNEMONIC_LD_B_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_B << 4 | C_KH },
-    { .i = LD_C_AT_K_INC, .name = MNEMONIC_LD_C_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_C << 4 | C_KH },
-    { .i = LD_D_AT_K_INC, .name = MNEMONIC_LD_D_AT_K_INC, .test = test_instruction_ld_r8_at_r16_inc, .data = C_D << 4 | C_KH },
-
-    { .i = LD_AT_I16_A, .name = MNEMONIC_LD_AT_I16_A, .test = test_instruction_ld_at_i16_r8, .data = C_A },
-    { .i = LD_AT_I16_B, .name = MNEMONIC_LD_AT_I16_B, .test = test_instruction_ld_at_i16_r8, .data = C_B },
-    { .i = LD_AT_I16_C, .name = MNEMONIC_LD_AT_I16_C, .test = test_instruction_ld_at_i16_r8, .data = C_C },
-    { .i = LD_AT_I16_D, .name = MNEMONIC_LD_AT_I16_D, .test = test_instruction_ld_at_i16_r8, .data = C_D },
-
-    { .i = LD_AT_I_A, .name = MNEMONIC_LD_AT_I_A, .test = test_instruction_ld_at_r16_r8, .data = C_IH << 4 | C_A },
-
-    { .i = LD_AT_I_INC_A, .name = MNEMONIC_LD_AT_I_INC_A, .test = test_instruction_ld_at_r16_inc_r8, .data = C_IH << 4 | C_A },
-    { .i = LD_AT_J_INC_A, .name = MNEMONIC_LD_AT_J_INC_A, .test = test_instruction_ld_at_r16_inc_r8, .data = C_JH << 4 | C_A },
-    { .i = LD_AT_K_INC_A, .name = MNEMONIC_LD_AT_K_INC_A, .test = test_instruction_ld_at_r16_inc_r8, .data = C_KH << 4 | C_A },
-
-    { .i = LD_FLAGS_I8, .name = MNEMONIC_LD_FLAGS_I8, .test = test_instruction_ld_r8_i8, .data = C_F },
-
-    { .i = SHL_A, .name = MNEMONIC_SHL_A, .test = test_instruction_shl_r8, .data = C_A },
-
-    { .i = SHR_A, .name = MNEMONIC_SHR_A, .test = test_instruction_shr_r8, .data = C_A },
-
-    { .i = AND_A_I8, .name = MNEMONIC_AND_A_I8, .test = test_instruction_and_r8_i8, .data = C_A },
-
-    { .i = ADD_A_I8, .name = MNEMONIC_ADD_A_I8, .test = test_instruction_add_r8_i8, .data = C_A },
-
-    { .i = ADDC_A_I8, .name = MNEMONIC_ADDC_A_I8, .test = test_instruction_addc_r8_i8, .data = C_A },
-
-    { .i = SUBC_A_I8, .name = MNEMONIC_SUBC_A_I8, .test = test_instruction_subc_r8_i8, .data = C_A },
-
-    { .i = JMP_I16, .name = MNEMONIC_JMP_I16, .test = test_instruction_jmp_i16, .data = 0 },
-
-    { .i = JMP_K, .name = MNEMONIC_JMP_K, .test = test_instruction_jmp_r16, .data = C_KH },
-
-    { .i = JZ_I16,  .name = MNEMONIC_JZ_I16,  .test = test_instruction_jmp_i16_conditional, .data =   0 << 4 | F_Z },
-    { .i = JNZ_I16, .name = MNEMONIC_JNZ_I16, .test = test_instruction_jmp_i16_conditional, .data = F_Z << 4 | 0 },
-    { .i = JC_I16,  .name = MNEMONIC_JC_I16,  .test = test_instruction_jmp_i16_conditional, .data =   0 << 4 | F_C },
-    { .i = JNC_I16, .name = MNEMONIC_JNC_I16, .test = test_instruction_jmp_i16_conditional, .data = F_C << 4 | 0 },
-
-    { .i = JAL_K_I16, .name = MNEMONIC_JAL_K_I16, .test = test_instruction_jal_r16_i16, .data = C_KH },
-
-    { .i = PUSH_A, .name = MNEMONIC_PUSH_A, .test = test_instruction_push_r8, .data = C_A },
-
-    { .i = PUSH_K, .name = MNEMONIC_PUSH_K, .test = test_instruction_push_r16, .data = C_KH },
-
-    { .i = POP_A, .name = MNEMONIC_POP_A, .test = test_instruction_pop_r8, .data = C_A },
-
-    { .i = POP_K, .name = MNEMONIC_POP_K, .test = test_instruction_pop_r16, .data = C_KH },
-
-    { .i = OUT_I8, .name = MNEMONIC_OUT_I8, .test = test_instruction_out_i8, .data = 0 },
-
-    { .i = OUT_TX_START, .name = MNEMONIC_OUT_TX_START, .test = test_instruction_out_tx_start, .data = 0 },
-    { .i = OUT_TX,       .name = MNEMONIC_OUT_TX,       .test = test_instruction_out_tx,       .data = 0 },
-    { .i = OUT_TX_STOP,  .name = MNEMONIC_OUT_TX_STOP,  .test = test_instruction_out_tx_stop,  .data = 0 },
-
-    { .i = IN_RX_START_I16, .name = MNEMONIC_IN_RX_START_I16, .test = test_instruction_in_rx_start_i16, .data = 0 },
-    { .i = IN_RX,           .name = MNEMONIC_IN_RX,           .test = test_instruction_in_rx,           .data = 0 },
-
-    { .i = SPI0_NEXT, .name = MNEMONIC_SPI0_NEXT, .test = test_instruction_spi0_next, .data = 0 },
-
-    { .i = SPI2_BEGIN, .name = MNEMONIC_SPI2_BEGIN, .test = test_instruction_spi2_begin, .data = 0 },
-};
-
 static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char** buffer_ptr, test_State* state) {
     uint32_t index = (uint32_t)(
         (((state->mh >> 5) & 1) << 16) |
@@ -206,8 +68,8 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
 
     buffer += sprintf(buffer, "\n    0x%02x: index: 0x%05x signals: 0x%04x\n", state->s, index, signals);
 
-    if (state->i != RESET && state->s == 0 && signals != S0_FETCH) {
-        buffer += sprintf(buffer, "        expected signals at s 0 to be S0_FETCH\n");
+    if (state->tf != 0 && state->i != RESET && state->s == 0 && signals != S0_FETCH) {
+        buffer += sprintf(buffer, "        expected signals at s 0 to be S0_FETCH, TF=0x%02x\n", state->tf);
         return 2;
     }
 
@@ -272,9 +134,16 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
         state->c = signals >> 11;
     } else {
         if (signals & SEL_C_LD_TF) {
-            buffer += sprintf(buffer, "        LD_TF: sel MOSI=%d\n", bus >> 7);
+            bool sel_c = signals & SEL_C;
+            uint8_t tf2 = sel_c ? (((~bus) >> 2) & 1) : 1;
+            uint8_t tf3 = (bus >> 7);
 
-            state->tf = (uint8_t)((bus >> 7) << 3) | (bus & 0x7);
+            state->tf = (uint8_t)(
+                (tf3 << 3) |
+                (tf2 << 2) |
+                (bus & 0x3));
+
+            buffer += sprintf(buffer, "        LD_TF: TF=0x%02x sel MOSI=%d sel C=%d\n", state->tf, bus >> 7, sel_c ? 1 : 0);
         }
 
         if (signals & SEL_C_LD_GPO) {
@@ -323,65 +192,117 @@ static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM
      return state->s == 0 ? 1 : 0;
 }
 
-static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION]) {
+static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], const Instruction instructions[0x100]) {
     char buffer[0x2000];
     char* buffer_ptr = buffer;
 
     test_State state = {0};
 
+    // fill mem with bogus data
     for (int i = 0; i < 0x10000; ++i) {
         state.mem[i] = i & 1 ? 0xab : 0xba;
     }
 
-    state.i  = 0; // reset hooked up
+    state.i = 0xab;
+    state.ml = 0xfa;
+    state.mh = 0x43;
+    state.t = 0x85;
+    state.c = 0xf;
+
     state.s  = 0; // reset hooked up
-    state.ml = 0; // reset hooked up
-    state.mh = 0; // reset hooked up
+    state.tf = 0; // reset hooked up
 
     int steps = 0;
 
-    state.i = RESET;
-
     for (;; ++steps) {
-        buffer[0] = '\0';
-        buffer_ptr = buffer;
+        if ((steps & 0x1f) == 0x1f) {
+            // fprintf(stderr, "steps: %d\n%s\n", steps, buffer);
+            buffer[0] = '\0';
+            buffer_ptr = buffer;
+        }
 
         int error = test_step(rom_alu, rom_instruction1, rom_instruction2, &buffer_ptr, &state);
 
         if (error > 1) {
-            fprintf(stderr, "reset failed: %s\n", buffer);
+            fprintf(stderr, "reset failed after %d steps: %s\n", steps, buffer);
             return 1;
         }
 
-        if (state.i != RESET && error == 1) break;
+        if (state.i == NOP && error == 1) break;
 
-        if (state.mh >= 0x20 && state.ml >= 0x02) {
+        if (state.tf != 0 && state.mh >= 0x20 && state.ml >= 0x02) {
             fprintf(stderr, "reset failed, M too big 0x%02x%02x\n", state.mh, state.ml);
+            return 1;
+        }
+
+        if (steps >= 300000) {
+            fprintf(stderr, "reset aborted after %d steps\n", steps);
             return 1;
         }
     }
 
     printf("reset complete after %d steps\n", steps);
 
-    int n_failed_tests = 0;
-    int n_test_cases = sizeof(test_cases) / sizeof(test_cases[0]);
+    if (state.mh != 0 || state.ml != 0) {
+        fprintf(stderr, "reset failed, expected mh (0x%02x) and ml (0x%02x) to be zero\n", state.mh, state.ml);
+        return 1;
+    }
 
-    for (int i = n_test_cases - 1; i >= 0; --i) {
+    if (state.tf != 0x4) {
+        fprintf(stderr, "reset failed, expected tf (0x%02x) to be 0x4\n", state.tf);
+        return 1;
+    }
+
+    if (state.mem[0xfff0 | C_FF] != 0xff) {
+        fprintf(stderr, "reset failed, expected mem[C_FF] (0x%02x) to be 0xff\n", state.mem[0xfff0 | C_FF]);
+        return 1;
+    }
+
+    if (state.mem[0xfff0 | C_SP] != 0x00) {
+        fprintf(stderr, "reset failed, expected mem[C_SP] (0x%02x) to be 0x00\n", state.mem[0xfff0 | C_SP]);
+        return 1;
+    }
+
+    if (state.mem[0xfff0 | C_F] != 0xff) {
+        fprintf(stderr, "reset failed, expected mem[C_F] (0x%02x) to be 0xff\n", state.mem[0xfff0 | C_F]);
+        return 1;
+    }
+
+     if (test_state_M_or_C(&state)) {
+        fprintf(stderr, "reset never restored mem address to M\n");
+        return 1;
+    }
+
+    for (int i = 0; i < ROM_SIZE_BOOT; ++i) {
+        uint8_t actual = state.mem[i];
+        uint8_t expected = rom_alu[(A_BOOT << 16) | i];
+
+        if (actual != expected) {
+            fprintf(stderr, "reset failed to copy boot rom byte 0x%02x to mem[0x%04x] (0x%02x)\n", expected, i, actual);
+            return 1;
+        }
+    }
+
+    int n_failed_tests = 0;
+
+    for (int i = 0 ; i < 0x100; ++i) {
+        if (instructions[i].test == NULL) {
+            continue;
+        }
+
         for (int permutation = 0;; ++permutation) {
             buffer[0] = '\0';
             buffer_ptr = buffer;
 
             if (state.mh == 0xff) state.mh = 0; // prevent overwriting mem registers
 
-            test_case test_case = test_cases[i];
+            state.i = (uint8_t)i; // prevent getting stuck in reset instruction
 
-            state.i = (uint8_t)test_case.i; // To prevent getting stuck in reset instruction
-
-            bool last_permutation = test_case.test(test_case.data, permutation, &buffer_ptr, &state, NULL);
+            bool last_permutation = instructions[i].test(instructions[i].test_data, permutation, &buffer_ptr, &state, NULL);
 
             buffer_ptr += sprintf(buffer_ptr, "\n");
 
-            state.mem[test_state_M(&state)] = (uint8_t)test_case.i; // The value loaded into I on first step
+            state.mem[test_state_M(&state)] = (uint8_t)i; // the value loaded into I on first step
 
             test_State orignal_state = state;
 
@@ -407,17 +328,20 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
                 } else if (test_state_M_or_C(&state)) {
                     buffer_ptr += sprintf(buffer_ptr, "instruction never restored mem address to M\n");
                     test_failed = true;
+                } else if (state.tf == 0) {
+                    buffer_ptr += sprintf(buffer_ptr, "TF is 0, should only be true at cold start\n");
+                    test_failed = true;
                 } else {
-                    test_failed = test_case.test(test_case.data, permutation, &buffer_ptr, &orignal_state, &state);
+                    test_failed = instructions[i].test(instructions[i].test_data, permutation, &buffer_ptr, &orignal_state, &state);
                 }
             }
 
             if (test_failed) {
-                fprintf(stderr, "%s - permutation %d failed: %s\n", test_case.name, permutation, buffer);
+                fprintf(stderr, "%s - permutation %d failed: %s\n", instructions[i].customasm, permutation, buffer);
                 ++n_failed_tests;
                 break;
             } else if (last_permutation) {
-                printf("%s - passed (%d times)\n", test_case.name, permutation + 1);
+                printf("%s - passed (%d times)\n", instructions[i].customasm, permutation + 1);
                 break;
             }
         }

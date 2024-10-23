@@ -34,7 +34,7 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
                         uint8_t expected_cf = mh & 1;
                         uint8_t expected_of = 0;
                         uint8_t expected_sf = (uint8_t)(mh >> 1) >> 7;
-                        uint8_t expected_output = (uint8_t)(
+                        uint8_t expected_output = (uint8_t)~(
                             (expected_sf << 7) |
                             (expected_sf << 3) |
                             (expected_of << 2) |
@@ -43,6 +43,11 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
 
                         if (actual_output != expected_output) {
                             fprintf(stderr, "flags (0x%02x shr 1) => expected: 0x%02x, actual: 0x%02x\n", mh, expected_output, actual_output);
+                            return 1;
+                        }
+
+                        if (actual_output == 0) {
+                            fprintf(stderr, "flags (0x%02x shr 1) should never be all zero\n", mh);
                             return 1;
                         }
                     } break;
@@ -142,7 +147,7 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
 
                     uint8_t expected_sf = (q >> 7) & 1;
 
-                    uint8_t expected_output = (uint8_t)(
+                    uint8_t expected_output = (uint8_t)~(
                         (expected_sf << 7) |
                         (expected_sf << 3) |
                         (expected_of << 2) |
@@ -151,6 +156,11 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
 
                     if (actual_output != expected_output) {
                         fprintf(stderr, "flags (0x%02x + 0x%02x) => expected: 0x%02x, actual: 0x%02x\n", ml, mh, expected_output, actual_output);
+                        return 1;
+                    }
+
+                    if (actual_output == 0) {
+                        fprintf(stderr, "flags should never be all zero\n");
                         return 1;
                     }
                 }
@@ -179,7 +189,7 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
 
                     uint8_t expected_sf = (q >> 7) & 1;
 
-                    uint8_t expected_output = (uint8_t)(
+                    uint8_t expected_output = (uint8_t)~(
                         (expected_sf << 7) |
                         (expected_sf << 3) |
                         (expected_of << 2) |
@@ -188,6 +198,11 @@ static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
 
                     if (actual_output != expected_output) {
                         fprintf(stderr, "flags (0x%02x + 0x%02x + 1) => expected: 0x%02x, actual: 0x%02x\n", ml, mh, expected_output, actual_output);
+                        return 1;
+                    }
+
+                    if (actual_output == 0) {
+                        fprintf(stderr, "flags should never be all zero\n");
                         return 1;
                     }
                 }

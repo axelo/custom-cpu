@@ -52,7 +52,14 @@ https://en.wikipedia.org/wiki/NOR_logic
 #define SEL_C_LD_GPO SEL_C2
 #define SEL_C_LD_TF  SEL_C3
 
-#define SIGNALS_ACTIVE_LOW_MASK (LD_C | LD_ML | LD_MH | LD_S | OE_MEM | OE_ALU | OE_T)
+#define SIGNALS_ACTIVE_LOW_MASK (LD_I | LD_C | LD_ML | LD_MH | LD_S | OE_MEM | OE_ALU | OE_T)
+
+#define S0_FETCH (OE_MEM | LD_I | INC_M)
+
+#define M (0 << 4)
+#define C (1 << 4)
+
+#define LD_CSEL(c) ((uint16_t)((c & 0x1f) << 11) | LD_C)
 
 // alu operations
 typedef enum {
@@ -92,13 +99,19 @@ typedef enum {
 #define C_SP 0xe
 #define C_FF 0xf
 
-// flags
+// flags, computed by the ALU lookup table
 #define F_C (1 << 0) // carry
 #define F_Z (1 << 1) // zero
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
 
-// instructions
+// temp flags are active low, expect OF
+#define IS_TF_C_SET(tf) (((tf) & F_C) == 0)
+#define IS_TF_Z_SET(tf) (((tf) & F_Z) == 0)
+#define IS_TF_O_SET(tf) (((tf) & F_O) == F_O) // only latched when SEL_C_LD_TF is paired with SEL_C
+#define IS_TF_S_SET(tf) (((tf) & F_S) == 0)
+
+// instruction id
 typedef enum {
     RESET = 0x00,
 
@@ -158,6 +171,7 @@ typedef enum {
     LD_B_AT_I_INC,
     LD_C_AT_I_INC,
     LD_D_AT_I_INC,
+    LD_T_AT_I_INC,
 
     LD_A_AT_J_INC,
     LD_B_AT_J_INC,
@@ -180,8 +194,6 @@ typedef enum {
     LD_AT_J_INC_A,
     LD_AT_K_INC_A,
 
-    LD_FLAGS_I8,
-
     ADD_A_I8,
 
     ADDC_A_I8,
@@ -201,6 +213,7 @@ typedef enum {
     JNZ_I16,
     JC_I16,
     JNC_I16,
+    JO_I16,
     // http://www.unixwiz.net/techtips/x86-jumps.html
 
     JAL_K_I16,
@@ -227,14 +240,67 @@ typedef enum {
     SPI0_END,
 
     SPI2_BEGIN,
+} I_id;
+
+typedef struct {
+    union {
+        uint8_t r8;
+
+        struct {
+            uint8_t rh8;
+            uint8_t rl8;
+        };
+
+        bool imm;
+    } src;
+
+    union {
+        uint8_t r8;
+
+        struct {
+            uint8_t rh8;
+            uint8_t rl8;
+        };
+
+    } dst;
+} Operands;
+
+typedef struct {
+    uint8_t i;
+    uint8_t s; // 4 bit
+    uint8_t ml;
+    uint8_t mh;
+    uint8_t c;
+    uint8_t t;
+    uint8_t tf; // 4 bit
+    uint8_t gpo;
+    uint8_t gpi;
+    uint8_t in_rx; // 1 bit
+    uint8_t in_miso; // 1 bit
+    uint8_t mem[0x10000];
+} test_State;
+
+typedef const struct {
+    const char* customasm;
+
+    Operands operands;
+
+    union {
+        uint16_t (*signals)(Operands o, uint8_t s, uint8_t tf);
+        uint16_t (*signals_with_tf_m13)(Operands o, uint8_t s, uint8_t tf, uint8_t m13);
+    };
+
+    bool (*test)(int data, int permutation, char** buffer, test_State* before, test_State* after);
+    int test_data;
 } Instruction;
 
-#include "signals_alu.inc"
-#include "signals_instruction.inc"
-#include "customasm_ruledef.inc"
-
-#include "test_alu.inc"
 #include "test_instructions.inc"
+#include "instruction.inc"
+
+#include "signals_alu.inc"
+#include "test_alu.inc"
+
+#include "customasm_ruledef.inc"
 
 static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     FILE *file = fopen(filename, "w");
@@ -302,12 +368,29 @@ int main(void) {
     uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION];
 
     for (int index = 0; index < ROM_SIZE_INSTRUCTION; ++index) {
-        Instruction i = index & 0xff;
-        uint8_t s     = (index >> 8) & 0xf;
-        uint8_t tf    = (index >> 8 >> 4) & 0xf;
-        uint8_t m13   = (index >> 8 >> 4 >> 4) & 1;
+        I_id    i   = index & 0xff;
+        uint8_t s   = (index >> 8) & 0xf;
+        uint8_t tf  = (index >> 8 >> 4) & 0xf;
+        uint8_t m13 = (index >> 8 >> 4 >> 4) & 1;
 
-        uint16_t signals = signals_instruction(i, s, tf, m13) ^ SIGNALS_ACTIVE_LOW_MASK;
+        uint16_t signals = 0;
+
+        if (tf == 0) {
+            signals = instruction_reset_cold_start(s);
+
+        } else if (i == RESET) {
+            assert(instructions[i].signals && "missing RESET instruction");
+            signals = instructions[i].signals_with_tf_m13(instructions[i].operands, s, tf, m13);
+
+        } else if (instructions[i].signals != NULL) {
+            signals = instructions[i].signals(instructions[i].operands, s, tf);
+
+        } else {
+            signals = OE_T | LD_S;
+
+        }
+
+        signals ^= SIGNALS_ACTIVE_LOW_MASK;
 
         rom_instruction1[index] = signals & 0xff;
         rom_instruction2[index] = (signals >> 8) & 0xff;
@@ -316,7 +399,7 @@ int main(void) {
     // generate customasm ruledef
     char ruledef[8096];
 
-    size_t ruledef_size = customasm_ruledef(sizeof(ruledef), ruledef);
+    size_t ruledef_size = customasm_ruledef(sizeof(ruledef), ruledef, instructions);
 
     // test roms
     if (test_alu(rom_alu)) {
@@ -325,7 +408,7 @@ int main(void) {
     }
 
     int n_failed_instruction_tests = 0;
-    if ((n_failed_instruction_tests = test_instructions(rom_alu, rom_instruction1, rom_instruction2))) {
+    if ((n_failed_instruction_tests = test_instructions(rom_alu, rom_instruction1, rom_instruction2, instructions))) {
         fprintf(stderr, "%d instruction test(s) failed\n", n_failed_instruction_tests);
         return 1;
     }
