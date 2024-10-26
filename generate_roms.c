@@ -301,10 +301,10 @@ typedef const struct {
 } Instruction;
 
 #include "test_instructions.inc"
+
 #include "instructions.inc"
 
-#include "test_alu.inc"
-#include "signals_alu.inc"
+#include "alu.inc"
 
 #include "customasm_ruledef.inc"
 
@@ -402,22 +402,23 @@ int main(void) {
         rom_instruction2[index] = (signals >> 8) & 0xff;
     }
 
-    // generate customasm ruledef
-    char ruledef[8096];
-
-    size_t ruledef_size = customasm_ruledef(sizeof(ruledef), ruledef, instructions);
-
-    // test roms
+    // test alu
     if (test_alu(rom_alu)) {
         fprintf(stderr, "alu tests failed\n");
         return 1;
     }
 
+    // test instructions
     int n_failed_instruction_tests = 0;
     if ((n_failed_instruction_tests = test_instructions(rom_alu, rom_instruction1, rom_instruction2, instructions))) {
         fprintf(stderr, "%d instruction test(s) failed\n", n_failed_instruction_tests);
         return 1;
     }
+
+    // generate customasm ruledef
+    char ruledef[8096];
+
+    size_t ruledef_size = customasm_ruledef(sizeof(ruledef), ruledef, instructions);
 
     // write outputs to files
     if (write_rom(ROM_SIZE_ALU, rom_alu, "rom_alu.bin")) return 1;
