@@ -1,11 +1,17 @@
-static inline uint16_t instruction_jmp_i16_conditional(bool do_jmp, uint8_t s) {
+static inline uint16_t instruction_jmp_i16_conditional(Operands o, uint8_t s, uint8_t tf) {
+    uint8_t flags = TF_TO_F(tf);
+
+    bool do_jump  =
+        ((flags  | FLAG_MASK_ANY) & o.src.flag_mask_set) &&
+        ((~flags | FLAG_MASK_ANY) & o.src.flag_mask_unset);
+
     switch (s) {
     case 0: return S0_FETCH;
     case 1: return OE_MEM | LD_T | INC_M      | LD_CSEL(C_F | C); // T = hi addr, M++, C = C_F
     case 2: return OE_MEM | SEL_C_LD_TF | SEL_C;                  // tf = mem[C]
     }
 
-    if (do_jmp) {
+    if (do_jump) {
         switch (s) {
         case 3: return OE_T                   | LD_CSEL(M); // C = M
         case 4: return OE_MEM | LD_ML | INC_M;              // ML = mem[M] (lo addr)
@@ -19,22 +25,40 @@ static inline uint16_t instruction_jmp_i16_conditional(bool do_jmp, uint8_t s) {
     return OE_T;
 }
 
-static inline uint16_t instruction_jc_i16(Operands o, uint8_t s, uint8_t tf) {
-    return instruction_jmp_i16_conditional(IS_TF_C_SET(tf), s);
-}
+static bool test_instruction_jmp_i16_conditional(int permutation, Operands o, char** buffer_ptr, test_State* before, test_State* after) {
+    srand((uint32_t)(permutation + 17));
 
-static inline uint16_t instruction_jnc_i16(Operands o, uint8_t s, uint8_t tf) {
-    return instruction_jmp_i16_conditional(!IS_TF_C_SET(tf), s);
-}
+    uint16_t i16 = (uint16_t)(rand() & 0xff00) | ((rand() >> 8) & 0xff);
 
-static inline uint16_t instruction_jz_i16(Operands o, uint8_t s, uint8_t tf) {
-    return instruction_jmp_i16_conditional(IS_TF_Z_SET(tf), s);
-}
+    uint8_t flags = (uint8_t)permutation;
 
-static inline uint16_t instruction_jnz_i16(Operands o, uint8_t s, uint8_t tf) {
-    return instruction_jmp_i16_conditional(!IS_TF_Z_SET(tf), s);
-}
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
 
-static inline uint16_t instruction_jo_i16(Operands o, uint8_t s, uint8_t tf) {
-    return instruction_jmp_i16_conditional(IS_TF_O_SET(tf), s);
+        before->mem[0xfff0 | C_F] = (uint8_t)~flags; // flags are active low
+
+        return permutation >= 0xf;
+    }
+
+    uint16_t actual_pc = test_state_M(after);
+
+    bool do_jump  =
+        ((flags  | FLAG_MASK_ANY) & o.src.flag_mask_set) &&
+        ((~flags | FLAG_MASK_ANY) & o.src.flag_mask_unset);
+
+    if (do_jump) {
+        if (actual_pc != i16) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc to jump to 0x%04x, is 0x%04x - test flags: 0x%x\n", i16, actual_pc, flags);
+            return true;
+        }
+    } else {
+        if (test_instruction_expect_pc_step(3, buffer_ptr, before, after)) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc not o jump - test flags: 0x%x\n", flags);
+
+            return true;
+        }
+    }
+
+    return false;
 }

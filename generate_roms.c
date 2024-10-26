@@ -105,11 +105,15 @@ typedef enum {
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
 
-// temp flags are active low, expect OF
+// temp flags are active low, expect F_O
 #define IS_TF_C_SET(tf) (((tf) & F_C) == 0)
 #define IS_TF_Z_SET(tf) (((tf) & F_Z) == 0)
 #define IS_TF_O_SET(tf) (((tf) & F_O) == F_O) // only latched when SEL_C_LD_TF is paired with SEL_C
 #define IS_TF_S_SET(tf) (((tf) & F_S) == 0)
+
+// flip F_O then invert so we think of flags as active high,
+#define TF_TO_F(tf) ((~((tf) ^ 0x4)) & 0xf)
+#define FLAG_MASK_ANY 0x10
 
 // instruction id
 typedef enum {
@@ -251,7 +255,10 @@ typedef struct {
             uint8_t rl8;
         };
 
-        bool imm;
+        struct {
+            uint8_t flag_mask_set;
+            uint8_t flag_mask_unset;
+        };
     } src;
 
     union {
@@ -287,18 +294,17 @@ typedef const struct {
 
     union {
         uint16_t (*signals)(Operands o, uint8_t s, uint8_t tf);
-        uint16_t (*signals_with_tf_m13)(Operands o, uint8_t s, uint8_t tf, uint8_t m13);
+        uint16_t (*signals_with_m13)(Operands o, uint8_t s, uint8_t tf, uint8_t m13);
     };
 
-    bool (*test)(int data, int permutation, char** buffer, test_State* before, test_State* after);
-    int test_data;
+    bool (*test)(int permutation, Operands o, char** buffer, test_State* before, test_State* after);
 } Instruction;
 
 #include "test_instructions.inc"
-#include "instruction.inc"
+#include "instructions.inc"
 
-#include "signals_alu.inc"
 #include "test_alu.inc"
+#include "signals_alu.inc"
 
 #include "customasm_ruledef.inc"
 
@@ -379,8 +385,8 @@ int main(void) {
             signals = instruction_reset_cold_start(s);
 
         } else if (i == RESET) {
-            assert(instructions[i].signals && "missing RESET instruction");
-            signals = instructions[i].signals_with_tf_m13(instructions[i].operands, s, tf, m13);
+            assert(instructions[i].signals_with_m13 && "missing RESET instruction");
+            signals = instructions[i].signals_with_m13(instructions[i].operands, s, tf, m13);
 
         } else if (instructions[i].signals != NULL) {
             signals = instructions[i].signals(instructions[i].operands, s, tf);

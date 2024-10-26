@@ -110,3 +110,124 @@ static inline uint16_t instruction_in_rx(Operands o, uint8_t s, uint8_t tf) {
 //     }
 //     return OE_T;
 // }
+
+static bool test_instruction_out_tx_start(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    uint8_t u8 = 'U';
+
+    if (after == NULL) {
+        return permutation >= 7;
+    };
+
+    if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;
+
+    uint8_t expected_gpo = 0xfe;
+    uint8_t actual_gpo   = after->gpo;
+
+    if (expected_gpo != actual_gpo) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected gpo to be 0x%02x, is 0x%02x\n", expected_gpo, actual_gpo);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_instruction_out_tx(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    uint8_t u8 = 'U';
+
+    if (after == NULL) {
+        if (permutation == 0) before->mem[0xfff0 | C_T] = u8;
+
+        return permutation >= 7;
+    };
+
+    if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;
+
+    uint8_t expected_gpo = 0xfe | ((u8 >> permutation) & 1);
+    uint8_t actual_gpo   = after->gpo;
+
+    if (expected_gpo != actual_gpo) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected gpo to be 0x%02x, is 0x%02x\n", expected_gpo, actual_gpo);
+        return true;
+    }
+
+    uint8_t expected_t = u8 >> (permutation + 1);
+    uint8_t actual_t   = after->mem[0xfff0 | C_T];
+
+    if (expected_t != actual_t) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected t to be 0x%02x, is 0x%02x\n", expected_t, actual_t);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_instruction_out_tx_stop(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    uint8_t u8 = 'U';
+
+    if (after == NULL) {
+        return permutation >= 7;
+    };
+
+    if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;
+
+    uint8_t expected_gpo = 0xff;
+    uint8_t actual_gpo   = after->gpo;
+
+    if (expected_gpo != actual_gpo) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected gpo to be 0x%02x, is 0x%02x\n", expected_gpo, actual_gpo);
+        return true;
+    }
+
+    return false;
+}
+
+static bool test_instruction_in_rx_start_i16(int permutation, Operands o, char** buffer_ptr, test_State* before, test_State* after) {
+    uint16_t i16 = 0x1234;
+    bool got_rx_start_bit = permutation > 0;
+
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
+
+        before->in_rx = got_rx_start_bit ? 0 : 1;
+
+        return permutation >= 1;
+    }
+
+    uint16_t actual_pc = test_state_M(after);
+
+    if (got_rx_start_bit) {
+        if (actual_pc != i16) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc to be 0x%04x, is 0x%04x\n", i16, actual_pc);
+            return true;
+        }
+    } else {
+        if (test_instruction_expect_pc_step(3, buffer_ptr, before, after)) return true;
+    }
+
+    return false;
+}
+
+static bool test_instruction_in_rx(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    uint8_t u8 = 'U'; // 0x55 0101 0101
+
+    if (after == NULL) {
+        if (permutation == 0) before->mem[0xfff0 | C_T] = 'X'; // 0x58 0101 1000
+
+        before->in_rx = (u8 >> permutation) & 1;
+
+        return permutation >= 7;
+    };
+
+    if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;
+
+    uint8_t expected_t = (uint8_t)('X' >> (permutation + 1)) | (uint8_t)(u8 << (7 - permutation));
+    uint8_t actual_t   = after->mem[0xfff0 | C_T];
+
+    if (expected_t != actual_t) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected t to be 0x%02x (%c), is 0x%02x (%c)\n", expected_t, expected_t, actual_t, actual_t);
+        return true;
+    }
+
+    return false;
+}

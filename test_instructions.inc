@@ -1,17 +1,7 @@
-
-
 #define test_state_M(state) ((uint16_t)(((state)->mh << 8) | (state)->ml))
 #define test_state_M_or_C(state) ((state)->c & 0x10)
 
-static bool test_instruction_not_implemented(int _data, int permutation, char **buffer_ptr, test_State* before, test_State* after) {
-    if (after == NULL) return true;
-
-    fprintf(stderr, "\n  v test not yet implemented v\n");
-
-    return false;
-}
-
-static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_ptr, test_State* before, test_State* after) {
+static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_ptr, const test_State* before, const test_State* after) {
     int pc_diff_actual = test_state_M(after) - test_state_M(before);
 
     if (pc_diff_actual != pc_diff_expected) {
@@ -21,39 +11,6 @@ static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_
 
     return false;
 }
-
-#include "test_instructions/nop.inc"
-#include "test_instructions/ld_r8_i8.inc"
-#include "test_instructions/ld_r8_r8.inc"
-#include "test_instructions/ld_r16_i16.inc"
-#include "test_instructions/ld_r8_at_i16.inc"
-#include "test_instructions/ld_r8_at_at_i16.inc"
-#include "test_instructions/ld_r8_at_r16.inc"
-#include "test_instructions/ld_r8_at_r16_inc.inc"
-#include "test_instructions/ld_at_i16_r8.inc"
-#include "test_instructions/ld_at_r16_r8.inc"
-#include "test_instructions/ld_at_r16_inc_r8.inc"
-#include "test_instructions/add_r8_i8.inc"
-#include "test_instructions/addc_r8_i8.inc"
-#include "test_instructions/subc_r8_i8.inc"
-#include "test_instructions/shl_r8.inc"
-#include "test_instructions/shr_r8.inc"
-#include "test_instructions/and_r8_i8.inc"
-#include "test_instructions/jmp_i16.inc"
-#include "test_instructions/jmp_r16.inc"
-#include "test_instructions/jmp_i16_conditional.inc"
-#include "test_instructions/jal_r16_i16.inc"
-#include "test_instructions/push_r8.inc"
-#include "test_instructions/push_r16.inc"
-#include "test_instructions/pop_r8.inc"
-#include "test_instructions/pop_r16.inc"
-#include "test_instructions/out_i8.inc"
-#include "test_instructions/out_tx_start.inc"
-#include "test_instructions/out_tx.inc"
-#include "test_instructions/out_tx_stop.inc"
-#include "test_instructions/in_rx_start_i16.inc"
-#include "test_instructions/in_rx.inc"
-#include "test_instructions/spi0_next.inc"
 
 static int test_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char** buffer_ptr, test_State* state) {
     uint32_t index = (uint32_t)(
@@ -203,6 +160,7 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
         state.mem[i] = i & 1 ? 0xab : 0xba;
     }
 
+    // fill regs with bogus data
     state.i = 0xab;
     state.ml = 0xfa;
     state.mh = 0x43;
@@ -287,6 +245,9 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
 
     for (int i = 0 ; i < 0x100; ++i) {
         if (instructions[i].test == NULL) {
+            if (instructions[i].customasm != NULL)
+                printf("%s - test not yet implemented\n", instructions[i].customasm);
+
             continue;
         }
 
@@ -298,7 +259,8 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
 
             state.i = (uint8_t)i; // prevent getting stuck in reset instruction
 
-            bool last_permutation = instructions[i].test(instructions[i].test_data, permutation, &buffer_ptr, &state, NULL);
+            bool last_permutation =
+                instructions[i].test(permutation, instructions[i].operands, &buffer_ptr, &state, NULL);
 
             buffer_ptr += sprintf(buffer_ptr, "\n");
 
@@ -332,7 +294,8 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
                     buffer_ptr += sprintf(buffer_ptr, "TF is 0, should only be true at cold start\n");
                     test_failed = true;
                 } else {
-                    test_failed = instructions[i].test(instructions[i].test_data, permutation, &buffer_ptr, &orignal_state, &state);
+                    test_failed =
+                        instructions[i].test(permutation, instructions[i].operands, &buffer_ptr, &orignal_state, &state);
                 }
             }
 
