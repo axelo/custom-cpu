@@ -99,155 +99,16 @@ typedef enum {
     AU_SHR_OR_80 = 0xff,
 } AU;
 
-// flags, computed by the ALU lookup table
+// flags, computed by the ALU lookup table, active low
 #define F_C (1 << 0) // carry
 #define F_Z (1 << 1) // zero
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
 
-// temp flags are active low, expect F_O
-#define IS_TF_C_SET(tf) (((tf) & F_C) == 0)
-#define IS_TF_Z_SET(tf) (((tf) & F_Z) == 0)
-#define IS_TF_O_SET(tf) (((tf) & F_O) == F_O) // only latched when SEL_C_LD_TF is paired with SEL_C
-#define IS_TF_S_SET(tf) (((tf) & F_S) == 0)
-
 // flip F_O then invert so we think of flags as active high,
 #define TF_TO_F(tf) ((~((tf) ^ 0x4)) & 0xf)
 
 #define FLAG_MASK_ANY 0x10
-
-// instruction id
-typedef enum {
-    RESET = 0x00,
-
-    NOP = 0xff,
-
-    LD_A_I8 = 0x01,
-    LD_B_I8,
-    LD_C_I8,
-    LD_D_I8,
-
-    LD_A_B,
-    LD_A_C,
-    LD_A_D,
-
-    LD_B_A,
-    LD_B_C,
-    LD_B_D,
-
-    LD_C_A,
-    LD_C_B,
-    LD_C_D,
-
-    LD_D_A,
-    LD_D_B,
-    LD_D_C,
-
-    LD_I_I16,
-    LD_J_I16,
-    LD_K_I16,
-
-    LD_A_AT_I16,
-    LD_B_AT_I16,
-    LD_C_AT_I16,
-    LD_D_AT_I16,
-
-    LD_A_AT_AT_I16,
-    LD_B_AT_AT_I16,
-    LD_C_AT_AT_I16,
-    LD_D_AT_AT_I16,
-
-    LD_A_AT_I,
-    LD_B_AT_I,
-    LD_C_AT_I,
-    LD_D_AT_I,
-
-    LD_A_AT_J,
-    LD_B_AT_J,
-    LD_C_AT_J,
-    LD_D_AT_J,
-
-    LD_A_AT_K,
-    LD_B_AT_K,
-    LD_C_AT_K,
-    LD_D_AT_K,
-
-    LD_A_AT_I_INC,
-    LD_B_AT_I_INC,
-    LD_C_AT_I_INC,
-    LD_D_AT_I_INC,
-    LD_T_AT_I_INC,
-
-    LD_A_AT_J_INC,
-    LD_B_AT_J_INC,
-    LD_C_AT_J_INC,
-    LD_D_AT_J_INC,
-
-    LD_A_AT_K_INC,
-    LD_B_AT_K_INC,
-    LD_C_AT_K_INC,
-    LD_D_AT_K_INC,
-
-    LD_AT_I16_A,
-    LD_AT_I16_B,
-    LD_AT_I16_C,
-    LD_AT_I16_D,
-
-    LD_AT_I_A,
-
-    LD_AT_I_INC_A,
-    LD_AT_J_INC_A,
-    LD_AT_K_INC_A,
-
-    ADD_A_I8,
-
-    ADDC_A_I8,
-
-    SUBC_A_I8,
-
-    SHL_A,
-
-    SHR_A,
-
-    AND_A_I8,
-
-    JMP_I16,
-    JMP_K,
-
-    JZ_I16,
-    JNZ_I16,
-    JC_I16,
-    JNC_I16,
-    JO_I16,
-    // http://www.unixwiz.net/techtips/x86-jumps.html
-
-    JAL_K_I16,
-
-    PUSH_A,
-
-    PUSH_K,
-
-    POP_A,
-
-    POP_K,
-
-    OUT_I8,
-
-    OUT_TX_START,
-    OUT_TX,
-    OUT_TX_STOP,
-
-    IN_RX_START_I16,
-    IN_RX,
-
-    SPI0_BEGIN,
-    SPI0_NEXT,
-    SPI0_END,
-
-    SPI2_BEGIN,
-} I_id;
-
-#define N_INSTRUCTIONS 0x100
 
 typedef struct {
     union {

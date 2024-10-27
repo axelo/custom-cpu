@@ -54,9 +54,9 @@ static bool test_instruction_shr_r8(int permutation, Operands o, char** buffer_p
         return true;
     }
 
-    uint8_t flags = after->mem[0xfff0 | C_F];
+    uint8_t flags = (uint8_t)~after->mem[0xfff0 | C_F]; // flags are active low
 
-    uint8_t expected_cf = ~r8_value & 1; // flags are active low
+    uint8_t expected_cf = r8_value & 1;
     uint8_t actual_cf = flags & F_C;
 
     if (expected_cf != actual_cf) {
@@ -64,18 +64,18 @@ static bool test_instruction_shr_r8(int permutation, Operands o, char** buffer_p
         return true;
     }
 
-    if (expected_r8_value == 0 && !IS_TF_Z_SET(flags)) {
+    if (expected_r8_value == 0 && !(flags & F_Z)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected zf\n");
         return true;
-    } else if (expected_r8_value != 0 && IS_TF_Z_SET(flags)) {
+    } else if (expected_r8_value != 0 && (flags & F_Z)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected zf cleared\n");
         return true;
     }
 
-    if (expected_r8_value >> 7 && !IS_TF_S_SET(flags)) {
+    if (expected_r8_value >> 7 && !(flags & F_S)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected sf\n");
         return true;
-    } else if (!(expected_r8_value >> 7) && IS_TF_S_SET(flags)) {
+    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected sf cleared\n");
         return true;
     }

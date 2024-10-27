@@ -13,7 +13,9 @@ static inline uint16_t instruction_reset_cold_start(uint8_t s) {
 }
 
 static inline uint16_t instruction_reset(Operands o, uint8_t s, uint8_t tf, uint8_t m13) {
-    if (IS_TF_C_SET(tf) && IS_TF_Z_SET(tf) && IS_TF_S_SET(tf)) { // TF = 0x04
+    uint8_t flags = TF_TO_F(tf);
+
+    if ((flags & F_C) && (flags & F_Z) && (flags & F_S)) { // TF = 0x04
         switch (s) {
         // assumes LD_CSEL(A_BOOT | M);
         case 0x0: return OE_ALU | LD_MEM | INC_M | (m13 == 0

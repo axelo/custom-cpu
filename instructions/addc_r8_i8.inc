@@ -18,7 +18,7 @@ static inline uint16_t instruction_addc_r8_i8(Operands o, uint8_t s, uint8_t tf)
     case 0x3: return OE_ALU | LD_MEM         | LD_CSEL(o.dst.r8 | C);
     case 0x4: return OE_MEM | LD_ML          | LD_CSEL(C_F | C);
     case 0x5: return OE_MEM | SEL_C_LD_TF;
-    case 0x6: return OE_T   | LD_MH | (IS_TF_C_SET(tf)
+    case 0x6: return OE_T   | LD_MH | ((TF_TO_F(tf) & F_C)
                                     ? INC_M  | LD_CSEL(A_ADD_F_CF)
                                     :          LD_CSEL(A_ADD_F));
     case 0x7: return OE_ALU | LD_T           | LD_CSEL(C_F | C);
@@ -110,28 +110,28 @@ static bool test_instruction_addc_r8_i8(int permutation, Operands o, char** buff
 
     uint16_t q = r8_value + i8 + ingoing_cf;
 
-    uint8_t flags = after->mem[0xfff0 | C_F];
+    uint8_t flags = (uint8_t)~after->mem[0xfff0 | C_F];
 
-    if (q >= 0x100 && !IS_TF_C_SET(flags)) {
+    if (q >= 0x100 && !(flags & F_C)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected cf\n");
         return true;
-    } else if (q < 0x100 && IS_TF_C_SET(flags)) {
+    } else if (q < 0x100 && (flags & F_C)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected cf cleared\n");
         return true;
     }
 
-    if (expected_r8_value == 0 && !IS_TF_Z_SET(flags)) {
+    if (expected_r8_value == 0 && !(flags & F_Z)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected zf\n");
         return true;
-    } else if (expected_r8_value != 0 && IS_TF_Z_SET(flags)) {
+    } else if (expected_r8_value != 0 && (flags & F_Z)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected zf cleared\n");
         return true;
     }
 
-    if (expected_r8_value >> 7 && !IS_TF_S_SET(flags)) {
+    if (expected_r8_value >> 7 && !(flags & F_S)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected sf\n");
         return true;
-    } else if (!(expected_r8_value >> 7) && IS_TF_S_SET(flags)) {
+    } else if (!(expected_r8_value >> 7) && (flags & F_S)) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected sf cleared\n");
         return true;
     }
