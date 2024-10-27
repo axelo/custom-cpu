@@ -2,4 +2,4 @@ shelved
 *.dSYM
 *.customasm
 *.bin
-generate_roms
+create_roms

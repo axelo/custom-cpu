@@ -788,7 +788,38 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
     },
 };
 
-static int test_instruction_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char** buffer_ptr, test_State* state) {
+static void instructions_create_roms(uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], const Instruction is[N_INSTRUCTIONS]) {
+    for (int index = 0; index < ROM_SIZE_INSTRUCTION; ++index) {
+        I_id    i   = index & 0xff;
+        uint8_t s   = (index >> 8) & 0xf;
+        uint8_t tf  = (index >> 8 >> 4) & 0xf;
+        uint8_t m13 = (index >> 8 >> 4 >> 4) & 1;
+
+        uint16_t signals = 0;
+
+        if (tf == 0) {
+            signals = instruction_reset_cold_start(s);
+
+        } else if (i == RESET) {
+            assert(is[i].signals_with_m13 && "missing RESET instruction");
+            signals = is[i].signals_with_m13(is[i].operands, s, tf, m13);
+
+        } else if (is[i].signals != NULL) {
+            signals = is[i].signals(is[i].operands, s, tf);
+
+        } else {
+            signals = OE_T | LD_S;
+
+        }
+
+        signals ^= SIGNALS_ACTIVE_LOW_MASK;
+
+        rom_instruction1[index] = signals & 0xff;
+        rom_instruction2[index] = (signals >> 8) & 0xff;
+    }
+}
+
+static int instructions_test_step(const uint8_t rom_alu[ROM_SIZE_ALU], const uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], const uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], char** buffer_ptr, test_State* state) {
     uint32_t index = (uint32_t)(
         (((state->mh >> 5) & 1) << 16) |
         ((state->tf & 0xf)      << 12) |
@@ -925,7 +956,7 @@ static int test_instruction_step(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_inst
      return state->s == 0 ? 1 : 0;
 }
 
-static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], const Instruction is[0x100]) {
+static int instructions_test_roms(const uint8_t rom_alu[ROM_SIZE_ALU], const uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], const uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], const Instruction is[0x100]) {
     char buffer[0x2000];
     char* buffer_ptr = buffer;
 
@@ -955,7 +986,7 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
             buffer_ptr = buffer;
         }
 
-        int error = test_instruction_step(rom_alu, rom_instruction1, rom_instruction2, &buffer_ptr, &state);
+        int error = instructions_test_step(rom_alu, rom_instruction1, rom_instruction2, &buffer_ptr, &state);
 
         if (error > 1) {
             fprintf(stderr, "reset failed after %d steps: %s\n", steps, buffer);
@@ -1047,7 +1078,7 @@ static int test_instructions(uint8_t rom_alu[ROM_SIZE_ALU], uint8_t rom_instruct
             bool test_failed = false;
 
             for (steps = 0; steps < 0x100; ++steps) {
-                int error = test_instruction_step(rom_alu, rom_instruction1, rom_instruction2, &buffer_ptr, &state);
+                int error = instructions_test_step(rom_alu, rom_instruction1, rom_instruction2, &buffer_ptr, &state);
 
                 if (error > 1) {
                     test_failed = true;

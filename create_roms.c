@@ -2,9 +2,8 @@
 
 cc  -Werror -Wall -Wpedantic -Wconversion -Wswitch-enum \
     -fsanitize=undefined,integer,nullability -std=c17 \
-    --debug generate_roms.c -o generate_roms \
-    && ./generate_roms
-
+    --debug create_roms.c -o create_roms \
+    && ./create_roms
 
 -Wsign-compare
 -Wno-gnu-binary-literal
@@ -105,7 +104,7 @@ typedef enum {
 #define F_O (1 << 2) // overflow
 #define F_S (1 << 3) // sign
 
-// flip F_O then invert so we think of flags as active high,
+// flip F_O then invert so we think of flags as active high
 #define TF_TO_F(tf) ((~((tf) ^ 0x4)) & 0xf)
 
 #define FLAG_MASK_ANY 0x10
@@ -171,6 +170,41 @@ typedef const struct {
 
 #include "instructions.inc"
 
+static size_t customasm_create_ruledef(size_t size, char ruledef[size], const Instruction is[N_INSTRUCTIONS]) {
+    static const char *customasm_ruledef_start = ""
+    "#bankdef memory {\n"
+    "    #bits     8\n"
+    "    #addr     0\n"
+    "    #addr_end 0x20000\n" // TODO: ROM_SIZE_BOOT
+    "    #outp     0\n"
+    "}\n"
+    "\n"
+    "#ruledef instructions\n{\n";
+
+    static const char *customasm_ruledef_end = "}\n";
+
+    size_t n = 0;
+
+    n += strlcat(ruledef + n, customasm_ruledef_start, size);
+    assert(n < size);
+
+    for (int i = 0; i < 0x100; ++i) {
+        if (is[i].customasm != NULL) {
+            if (strstr(is[i].customasm, "{imm") != NULL)
+                n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x @ imm\n", "    ", is[i].customasm, " => 0x", i);
+            else
+                n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", is[i].customasm, " => 0x", i);
+
+            assert(n < size);
+        }
+    }
+
+    n += strlcat(ruledef + n, customasm_ruledef_end, size);
+    assert(n < size);
+
+    return n;
+}
+
 static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     FILE *file = fopen(filename, "w");
 
@@ -192,84 +226,6 @@ static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     }
 
     return 0;
-}
-
-static void generate_alu(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t rom_alu[ROM_SIZE_ALU]) {
-    for (int i = 0; i < ROM_SIZE_ALU; ++i) {
-        uint8_t ml  = i & 0xff;
-        uint8_t mh  = (i >> 8) & 0xff;
-        A alu_op    = (i >> 8 >> 8) & 0x7;
-
-        rom_alu[i] = signals_alu(rom_boot, ml, mh, alu_op);
-    }
-}
-
-static void generate_instructions(uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], const Instruction is[N_INSTRUCTIONS]) {
-    for (int index = 0; index < ROM_SIZE_INSTRUCTION; ++index) {
-        I_id    i   = index & 0xff;
-        uint8_t s   = (index >> 8) & 0xf;
-        uint8_t tf  = (index >> 8 >> 4) & 0xf;
-        uint8_t m13 = (index >> 8 >> 4 >> 4) & 1;
-
-        uint16_t signals = 0;
-
-        if (tf == 0) {
-            signals = instruction_reset_cold_start(s);
-
-        } else if (i == RESET) {
-            assert(is[i].signals_with_m13 && "missing RESET instruction");
-            signals = is[i].signals_with_m13(is[i].operands, s, tf, m13);
-
-        } else if (is[i].signals != NULL) {
-            signals = is[i].signals(is[i].operands, s, tf);
-
-        } else {
-            signals = OE_T | LD_S;
-
-        }
-
-        signals ^= SIGNALS_ACTIVE_LOW_MASK;
-
-        rom_instruction1[index] = signals & 0xff;
-        rom_instruction2[index] = (signals >> 8) & 0xff;
-    }
-}
-
-static size_t generate_customasm_ruledef(size_t size, char ruledef[size], const Instruction is[N_INSTRUCTIONS]) {
-    static const char *customasm_ruledef_start = ""
-    "#bankdef memory {\n"
-    "    #bits     8\n"
-    "    #addr     0\n"
-    "    #addr_end 0x20000\n" // TODO: ROM_SIZE_BOOT
-    "    #outp     0\n"
-    "}\n"
-    "\n"
-    "#ruledef instructions\n{\n";
-
-    static const char *customasm_ruledef_end = "}\n";
-
-    size_t n = 0;
-
-    n += strlcat(ruledef + n, customasm_ruledef_start, size);
-    assert(n < size);
-
-    for (int i = 0; i < 0x100; ++i) {
-        if (is[i].customasm != NULL) {
-            if (strstr(is[i].customasm, "{imm") != NULL) {
-                n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x @ imm\n", "    ", is[i].customasm, " => 0x", i);
-                assert(n < size);
-            }
-            else {
-                n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", is[i].customasm, " => 0x", i);
-                assert(n < size);
-            }
-        }
-    }
-
-    n += strlcat(ruledef + n, customasm_ruledef_end, size);
-    assert(n < size);
-
-    return n;
 }
 
 int main(void) {
@@ -299,36 +255,34 @@ int main(void) {
         }
     }
 
-    // generate alu rom
+    // alu rom
     uint8_t rom_alu[ROM_SIZE_ALU];
 
-    generate_alu(rom_boot, rom_alu);
+    alu_create_rom(rom_boot, rom_alu);
 
-    // test alu
-    if (test_alu(rom_alu)) {
+    if (alu_test_rom(rom_alu)) {
         fprintf(stderr, "alu tests failed\n");
         return 1;
     }
 
-    // generate instruction roms
+    // instruction roms
     uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION];
     uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION];
 
-    generate_instructions(rom_instruction1, rom_instruction2, instructions);
+    instructions_create_roms(rom_instruction1, rom_instruction2, instructions);
 
-    // test instructions
     int n_failed_instruction_tests = 0;
-    if ((n_failed_instruction_tests = test_instructions(rom_alu, rom_instruction1, rom_instruction2, instructions))) {
+    if ((n_failed_instruction_tests = instructions_test_roms(rom_alu, rom_instruction1, rom_instruction2, instructions))) {
         fprintf(stderr, "%d instruction test(s) failed\n", n_failed_instruction_tests);
         return 1;
     }
 
-    // generate customasm ruledef
+    // customasm ruledef
     char ruledef[8096];
 
-    size_t ruledef_size = generate_customasm_ruledef(sizeof(ruledef), ruledef, instructions);
+    size_t ruledef_size = customasm_create_ruledef(sizeof(ruledef), ruledef, instructions);
 
-    // write outputs to files
+    // write files
     if (write_rom(ROM_SIZE_ALU, rom_alu, "rom_alu.bin")) return 1;
     if (write_rom(ROM_SIZE_INSTRUCTION, rom_instruction1, "rom_instruction1.bin")) return 1;
     if (write_rom(ROM_SIZE_INSTRUCTION, rom_instruction2, "rom_instruction2.bin")) return 1;

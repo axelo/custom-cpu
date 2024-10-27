@@ -1,4 +1,4 @@
-static inline uint8_t signals_alu(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, uint8_t mh, A alu_op) {
+static uint8_t alu_signals(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, uint8_t mh, A alu_op) {
     switch (alu_op) {
     case A_BOOT: {
         uint16_t address = (uint16_t)((mh << 8) | ml);
@@ -70,7 +70,17 @@ static inline uint8_t signals_alu(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t
     }
 }
 
-static int test_alu(uint8_t rom_alu[ROM_SIZE_ALU]) {
+static void alu_create_rom(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t rom_alu[ROM_SIZE_ALU]) {
+    for (int i = 0; i < ROM_SIZE_ALU; ++i) {
+        uint8_t ml  = i & 0xff;
+        uint8_t mh  = (i >> 8) & 0xff;
+        A alu_op    = (i >> 8 >> 8) & 0x7;
+
+        rom_alu[i] = alu_signals(rom_boot, ml, mh, alu_op);
+    }
+}
+
+static int alu_test_rom(uint8_t rom_alu[ROM_SIZE_ALU]) {
     for (int operation = 0; operation < 8; ++operation) {
         int op_index = operation << 8 << 8;
 
