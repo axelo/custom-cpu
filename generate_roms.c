@@ -61,6 +61,24 @@ https://en.wikipedia.org/wiki/NOR_logic
 
 #define LD_CSEL(c) ((uint16_t)((c & 0x1f) << 11) | LD_C)
 
+// constants
+#define C_MH A_OE_MH
+#define C_ML A_OE_ML
+#define C_T  0x2
+#define C_A  0x3
+#define C_B  0x4
+#define C_C  0x5
+#define C_D  0x6
+#define C_F  A_ADD_F_CF
+#define C_IH 0x8
+#define C_IL 0x9
+#define C_JH 0xa
+#define C_JL 0xb
+#define C_KH 0xc
+#define C_KL 0xd
+#define C_SP 0xe
+#define C_FF 0xf
+
 // alu operations
 typedef enum {
     A_OE_MH    = 0,
@@ -81,24 +99,6 @@ typedef enum {
     AU_SHR_OR_80 = 0xff,
 } AU;
 
-// constants
-#define C_MH A_OE_MH
-#define C_ML A_OE_ML
-#define C_T  0x2
-#define C_A  0x3
-#define C_B  0x4
-#define C_C  0x5
-#define C_D  0x6
-#define C_F  A_ADD_F_CF
-#define C_IH 0x8
-#define C_IL 0x9
-#define C_JH 0xa
-#define C_JL 0xb
-#define C_KH 0xc
-#define C_KL 0xd
-#define C_SP 0xe
-#define C_FF 0xf
-
 // flags, computed by the ALU lookup table
 #define F_C (1 << 0) // carry
 #define F_Z (1 << 1) // zero
@@ -113,6 +113,7 @@ typedef enum {
 
 // flip F_O then invert so we think of flags as active high,
 #define TF_TO_F(tf) ((~((tf) ^ 0x4)) & 0xf)
+
 #define FLAG_MASK_ANY 0x10
 
 // instruction id
@@ -246,6 +247,8 @@ typedef enum {
     SPI2_BEGIN,
 } I_id;
 
+#define N_INSTRUCTIONS 0x100
+
 typedef struct {
     union {
         uint8_t r8;
@@ -287,6 +290,9 @@ typedef struct {
     uint8_t mem[0x10000];
 } test_State;
 
+#define test_state_M(state) ((uint16_t)(((state)->mh << 8) | (state)->ml))
+#define test_state_M_or_C(state) ((state)->c & 0x10)
+
 typedef const struct {
     const char* customasm;
 
@@ -300,13 +306,9 @@ typedef const struct {
     bool (*test)(int permutation, Operands o, char** buffer, test_State* before, test_State* after);
 } Instruction;
 
-#include "test_instructions.inc"
-
-#include "instructions.inc"
-
 #include "alu.inc"
 
-#include "customasm_ruledef.inc"
+#include "instructions.inc"
 
 static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     FILE *file = fopen(filename, "w");
@@ -329,6 +331,84 @@ static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     }
 
     return 0;
+}
+
+static void generate_alu(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t rom_alu[ROM_SIZE_ALU]) {
+    for (int i = 0; i < ROM_SIZE_ALU; ++i) {
+        uint8_t ml  = i & 0xff;
+        uint8_t mh  = (i >> 8) & 0xff;
+        A alu_op    = (i >> 8 >> 8) & 0x7;
+
+        rom_alu[i] = signals_alu(rom_boot, ml, mh, alu_op);
+    }
+}
+
+static void generate_instructions(uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION], uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION], const Instruction is[N_INSTRUCTIONS]) {
+    for (int index = 0; index < ROM_SIZE_INSTRUCTION; ++index) {
+        I_id    i   = index & 0xff;
+        uint8_t s   = (index >> 8) & 0xf;
+        uint8_t tf  = (index >> 8 >> 4) & 0xf;
+        uint8_t m13 = (index >> 8 >> 4 >> 4) & 1;
+
+        uint16_t signals = 0;
+
+        if (tf == 0) {
+            signals = instruction_reset_cold_start(s);
+
+        } else if (i == RESET) {
+            assert(is[i].signals_with_m13 && "missing RESET instruction");
+            signals = is[i].signals_with_m13(is[i].operands, s, tf, m13);
+
+        } else if (is[i].signals != NULL) {
+            signals = is[i].signals(is[i].operands, s, tf);
+
+        } else {
+            signals = OE_T | LD_S;
+
+        }
+
+        signals ^= SIGNALS_ACTIVE_LOW_MASK;
+
+        rom_instruction1[index] = signals & 0xff;
+        rom_instruction2[index] = (signals >> 8) & 0xff;
+    }
+}
+
+static size_t generate_customasm_ruledef(size_t size, char ruledef[size], const Instruction is[N_INSTRUCTIONS]) {
+    static const char *customasm_ruledef_start = ""
+    "#bankdef memory {\n"
+    "    #bits     8\n"
+    "    #addr     0\n"
+    "    #addr_end 0x20000\n" // TODO: ROM_SIZE_BOOT
+    "    #outp     0\n"
+    "}\n"
+    "\n"
+    "#ruledef instructions\n{\n";
+
+    static const char *customasm_ruledef_end = "}\n";
+
+    size_t n = 0;
+
+    n += strlcat(ruledef + n, customasm_ruledef_start, size);
+    assert(n < size);
+
+    for (int i = 0; i < 0x100; ++i) {
+        if (is[i].customasm != NULL) {
+            if (strstr(is[i].customasm, "{imm") != NULL) {
+                n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x @ imm\n", "    ", is[i].customasm, " => 0x", i);
+                assert(n < size);
+            }
+            else {
+                n += (size_t) snprintf(ruledef + n, size, "%s%s%s%02x\n", "    ", is[i].customasm, " => 0x", i);
+                assert(n < size);
+            }
+        }
+    }
+
+    n += strlcat(ruledef + n, customasm_ruledef_end, size);
+    assert(n < size);
+
+    return n;
 }
 
 int main(void) {
@@ -361,52 +441,19 @@ int main(void) {
     // generate alu rom
     uint8_t rom_alu[ROM_SIZE_ALU];
 
-    for (int i = 0; i < ROM_SIZE_ALU; ++i) {
-        uint8_t ml  = i & 0xff;
-        uint8_t mh  = (i >> 8) & 0xff;
-        A alu_op    = (i >> 8 >> 8) & 0x7;
-
-        rom_alu[i] = signals_alu(rom_boot, ml, mh, alu_op);
-    }
-
-    // generate instruction roms
-    uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION];
-    uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION];
-
-    for (int index = 0; index < ROM_SIZE_INSTRUCTION; ++index) {
-        I_id    i   = index & 0xff;
-        uint8_t s   = (index >> 8) & 0xf;
-        uint8_t tf  = (index >> 8 >> 4) & 0xf;
-        uint8_t m13 = (index >> 8 >> 4 >> 4) & 1;
-
-        uint16_t signals = 0;
-
-        if (tf == 0) {
-            signals = instruction_reset_cold_start(s);
-
-        } else if (i == RESET) {
-            assert(instructions[i].signals_with_m13 && "missing RESET instruction");
-            signals = instructions[i].signals_with_m13(instructions[i].operands, s, tf, m13);
-
-        } else if (instructions[i].signals != NULL) {
-            signals = instructions[i].signals(instructions[i].operands, s, tf);
-
-        } else {
-            signals = OE_T | LD_S;
-
-        }
-
-        signals ^= SIGNALS_ACTIVE_LOW_MASK;
-
-        rom_instruction1[index] = signals & 0xff;
-        rom_instruction2[index] = (signals >> 8) & 0xff;
-    }
+    generate_alu(rom_boot, rom_alu);
 
     // test alu
     if (test_alu(rom_alu)) {
         fprintf(stderr, "alu tests failed\n");
         return 1;
     }
+
+    // generate instruction roms
+    uint8_t rom_instruction1[ROM_SIZE_INSTRUCTION];
+    uint8_t rom_instruction2[ROM_SIZE_INSTRUCTION];
+
+    generate_instructions(rom_instruction1, rom_instruction2, instructions);
 
     // test instructions
     int n_failed_instruction_tests = 0;
@@ -418,7 +465,7 @@ int main(void) {
     // generate customasm ruledef
     char ruledef[8096];
 
-    size_t ruledef_size = customasm_ruledef(sizeof(ruledef), ruledef, instructions);
+    size_t ruledef_size = generate_customasm_ruledef(sizeof(ruledef), ruledef, instructions);
 
     // write outputs to files
     if (write_rom(ROM_SIZE_ALU, rom_alu, "rom_alu.bin")) return 1;

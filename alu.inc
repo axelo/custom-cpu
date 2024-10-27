@@ -1,4 +1,4 @@
-static inline uint8_t signals_alu(uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, uint8_t mh, A alu_op) {
+static inline uint8_t signals_alu(const uint8_t rom_boot[ROM_SIZE_BOOT], uint8_t ml, uint8_t mh, A alu_op) {
     switch (alu_op) {
     case A_BOOT: {
         uint16_t address = (uint16_t)((mh << 8) | ml);
