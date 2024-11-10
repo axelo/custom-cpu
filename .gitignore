@@ -3,3 +3,4 @@ shelved
 *.customasm
 *.bin
 create_roms
+uart_over_tcp

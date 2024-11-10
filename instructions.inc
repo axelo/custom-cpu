@@ -9,6 +9,71 @@ static bool test_instruction_expect_pc_step(int pc_diff_expected, char **buffer_
     return false;
 }
 
+static inline uint16_t instruction_jcmpz_r8_r16(Operands o, uint8_t s, uint8_t tf) {
+    switch (s) {
+    case 0x0: return S0_FETCH;
+    case 0x1: return OE_T                    | LD_CSEL(C_MH | C);
+    case 0x2: return OE_ALU | LD_MEM         | LD_CSEL(C_ML | C);
+    case 0x3: return OE_ALU | LD_MEM         | LD_CSEL(C_FF | C);
+    case 0x4: return OE_MEM | LD_ML | LD_MH  | LD_CSEL(A_NAND);
+    case 0x5: return OE_ALU | LD_ML          | LD_CSEL(o.src.r8 | C); // ML = 0
+    case 0x6: return OE_MEM | LD_MH          | LD_CSEL(A_ADD_F);
+    case 0x7: return OE_ALU | SEL_C_LD_TF;
+    }
+
+    if (TF_TO_F(tf) & F_Z) {
+        // zero, do jump
+        switch (s) {
+        case 0x8: return OE_T                    | LD_CSEL(o.dst.rh8 | C);
+        case 0x9: return OE_MEM | LD_MH          | LD_CSEL(o.dst.rl8 | C);
+        case 0xa: return OE_MEM | LD_ML | LD_S   | LD_CSEL(M);
+        }
+
+    } else {
+        // not zero, do not jump
+        switch (s) {
+        case 0x8: return OE_T                    | LD_CSEL(C_MH | C);
+        case 0x9: return OE_MEM | LD_MH          | LD_CSEL(C_ML | C);
+        case 0xa: return OE_MEM | LD_ML | LD_S   | LD_CSEL(M);
+        }
+    }
+
+    return OE_T;
+}
+
+static bool test_instruction_jcmpz_r8_r16(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    if (after == NULL) {
+        uint16_t i16 = (uint16_t)(((~before->mh & 0xf0) << 8) | (rand() & 0xff));
+
+        before->mem[0xfff0 | o.dst.rh8] = i16 >> 8;
+        before->mem[0xfff0 | o.dst.rl8] = i16 & 0xff;
+
+        before->mem[0xfff0 | o.src.r8] = (uint8_t)permutation;
+
+        return permutation >= 0xff;
+    }
+
+    uint8_t actual_r8_value = before->mem[0xfff0 | o.src.r8];
+
+    if (actual_r8_value == 0) {
+        uint16_t actual_pc = test_state_M(after);
+        uint16_t expected_pc = (uint16_t)(before->mem[0xfff0 | o.dst.rh8] << 8 | before->mem[0xfff0 | o.dst.rl8]);
+
+        if (actual_pc != expected_pc) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc to jump to 0x%04x, is 0x%04x - test r8 (%d): 0x%x\n", expected_pc, actual_pc, o.src.r8, actual_r8_value);
+            return true;
+        }
+    } else {
+        if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc not to jump - test r8 (%d): 0x%x\n", o.src.r8, actual_r8_value);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 #include "instructions/reset.inc"
 #include "instructions/nop.inc"
 #include "instructions/ld_r8_i8.inc"
@@ -145,6 +210,8 @@ typedef enum {
     // http://www.unixwiz.net/techtips/x86-jumps.html
 
     JAL_K_I16,
+
+    JCMPZ_T_K,
 
     PUSH_A,
 
@@ -701,6 +768,13 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
         .test = test_instruction_jal_r16_i16,
     },
 
+    [JCMPZ_T_K] = {
+        .customasm = "jcmpz t, k",
+        .signals = instruction_jcmpz_r8_r16,
+        .operands = { .src = { .r8 = C_T }, .dst = { .rh8 = C_KH, .rl8 = C_KL } },
+        .test = test_instruction_jcmpz_r8_r16
+    },
+
     [PUSH_A] = {
         .customasm = "push a",
         .signals = instruction_push_r8,
@@ -973,6 +1047,7 @@ static int instructions_test_roms(const uint8_t rom_alu[ROM_SIZE_ALU], const uin
     state.mh = 0x43;
     state.t = 0x85;
     state.c = 0xf;
+    state.gpo = 0xba;
 
     state.s  = 0; // reset hooked up
     state.tf = 0; // reset hooked up
@@ -1015,6 +1090,11 @@ static int instructions_test_roms(const uint8_t rom_alu[ROM_SIZE_ALU], const uin
 
     if (state.tf != 0x4) {
         fprintf(stderr, "reset failed, expected tf (0x%02x) to be 0x4\n", state.tf);
+        return 1;
+    }
+
+    if (state.gpo != 0xff) {
+        fprintf(stderr, "reset failed, expected gpo (0x%02x) to be 0xff\n", state.gpo);
         return 1;
     }
 
@@ -1072,6 +1152,8 @@ static int instructions_test_roms(const uint8_t rom_alu[ROM_SIZE_ALU], const uin
             buffer_ptr += sprintf(buffer_ptr, "\n");
 
             state.mem[test_state_M(&state)] = (uint8_t)i; // the value loaded into I on first step
+
+            state.t = 0x0d; // "random" value
 
             test_State orignal_state = state;
 

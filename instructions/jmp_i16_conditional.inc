@@ -54,7 +54,7 @@ static bool test_instruction_jmp_i16_conditional(int permutation, Operands o, ch
         }
     } else {
         if (test_instruction_expect_pc_step(3, buffer_ptr, before, after)) {
-            *buffer_ptr += sprintf(*buffer_ptr, "expected pc not o jump - test flags: 0x%x\n", flags);
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc not to jump - test flags: 0x%x\n", flags);
 
             return true;
         }

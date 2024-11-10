@@ -2,6 +2,7 @@
 
 cc  -Werror -Wall -Wpedantic -Wconversion -Wswitch-enum \
     -fsanitize=undefined,integer,nullability -std=c17 \
+    -O3 \
     --debug create_roms.c -o create_roms \
     && ./create_roms
 
@@ -185,6 +186,8 @@ static size_t customasm_create_ruledef(size_t size, char ruledef[size], const In
 
     size_t n = 0;
 
+    ruledef[0] = '\0';
+
     n += strlcat(ruledef + n, customasm_ruledef_start, size);
     assert(n < size);
 
@@ -209,7 +212,7 @@ static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     FILE *file = fopen(filename, "w");
 
     if (file == NULL) {
-        fprintf(stderr, "Failed to open %s\n", filename);
+        fprintf(stderr, "Failed to open %s for writing\n", filename);
         return 1;
     }
 
@@ -228,32 +231,66 @@ static int write_rom(size_t size, uint8_t rom[size], const char *filename) {
     return 0;
 }
 
+static int read_boot_rom(size_t size, uint8_t rom[size], const char *filename) {
+    FILE *file = fopen(filename, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s for reading\n", filename);
+        return 1;
+    }
+
+    memset(rom, 0, size);
+
+    size_t n_read = fread(rom, 1, size, file);
+
+    if (n_read <= 0) {
+        fprintf(stderr, "Failed to read boot rom from file %s, read %zd bytes\n", filename, n_read);
+        return 1;
+    }
+
+    if (fclose(file) != 0) {
+        fprintf(stderr, "Failed to close file %s\n", filename);
+        return 1;
+    }
+
+    return 0;
+}
+
 int main(void) {
+    // customasm ruledef
+    char ruledef[8096];
+
+    size_t ruledef_size = customasm_create_ruledef(sizeof(ruledef), ruledef, instructions);
+
     // read boot rom
     uint8_t rom_boot[ROM_SIZE_BOOT];
 
-    {
-        int j = 0;
-        int dir = 0;
-        for (int i = 0; i < ROM_SIZE_BOOT; i += 2) {
-            if (dir) {
-                j = j << 1;
-                if (j >= 0x80) {
-                    j = 0x80;
-                    dir = 0;
-                }
-            } else {
-                j = j >> 1;
-                if (j <= 1) {
-                    j = 1;
-                    dir = 1;
-                }
-            }
-
-            rom_boot[i] = LD_A_I8;
-            rom_boot[i + 1] = (uint8_t)j;
-        }
+    if (read_boot_rom(ROM_SIZE_BOOT, rom_boot, "examples/boot_from_uart.bin")) {
+        return 1;
     }
+
+    // {
+    //     int j = 0;
+    //     int dir = 0;
+    //     for (int i = 0; i < ROM_SIZE_BOOT; i += 2) {
+    //         if (dir) {
+    //             j = j << 1;
+    //             if (j >= 0x80) {
+    //                 j = 0x80;
+    //                 dir = 0;
+    //             }
+    //         } else {
+    //             j = j >> 1;
+    //             if (j <= 1) {
+    //                 j = 1;
+    //                 dir = 1;
+    //             }
+    //         }
+
+    //         rom_boot[i] = LD_A_I8;
+    //         rom_boot[i + 1] = (uint8_t)j;
+    //     }
+    // }
 
     // alu rom
     uint8_t rom_alu[ROM_SIZE_ALU];
@@ -276,11 +313,6 @@ int main(void) {
         fprintf(stderr, "%d instruction test(s) failed\n", n_failed_instruction_tests);
         return 1;
     }
-
-    // customasm ruledef
-    char ruledef[8096];
-
-    size_t ruledef_size = customasm_create_ruledef(sizeof(ruledef), ruledef, instructions);
 
     // write files
     if (write_rom(ROM_SIZE_ALU, rom_alu, "rom_alu.bin")) return 1;

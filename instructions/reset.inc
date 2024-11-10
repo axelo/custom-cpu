@@ -5,9 +5,11 @@ static inline uint16_t instruction_reset_cold_start(uint8_t s) {
     case 0x2: return OE_ALU | LD_ML                 | LD_CSEL(A_OE_MH);    // ML = ~MH
     case 0x3: return OE_ALU | LD_MH  | INC_M        | LD_CSEL(A_ADD);      // ML = 2s complement
     case 0x4: return OE_ALU | LD_ML  | LD_MH | LD_T | LD_CSEL(C_F | C);    // ML, MH, T = MH - MH = 0
-    case 0x5: return OE_T   | LD_MEM | LD_I         | LD_CSEL(A_BOOT | M); // mem[C_F] = 0, I = RESET (0)
-    case 0x6: return OE_T   | SEL_C_LD_TF | LD_S;                          // this will take us out from reset cold start
-                                                                           // and set all flags (which is a weird state on purpose)
+    case 0x5: return OE_T   | LD_MEM | LD_I         | LD_CSEL(A_NAND);     // mem[C_F] = 0, I = RESET (0)
+    case 0x6: return OE_ALU | SEL_C_LD_GPO;                                // GPO = 0xff
+    case 0x7: return OE_T                           | LD_CSEL(A_BOOT | M);
+    case 0x8: return OE_T   | SEL_C_LD_TF | LD_S;                          // this will take us out from reset cold start
+                                                                           // and set all "flags" (which is a weird state on purpose)
     }
     return OE_T;
 }

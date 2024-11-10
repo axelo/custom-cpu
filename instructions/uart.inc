@@ -112,8 +112,6 @@ static inline uint16_t instruction_in_rx(Operands o, uint8_t s, uint8_t tf) {
 // }
 
 static bool test_instruction_out_tx_start(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
-    uint8_t u8 = 'U';
-
     if (after == NULL) {
         return permutation >= 7;
     };
@@ -162,8 +160,6 @@ static bool test_instruction_out_tx(int permutation, Operands o, char **buffer_p
 }
 
 static bool test_instruction_out_tx_stop(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
-    uint8_t u8 = 'U';
-
     if (after == NULL) {
         return permutation >= 7;
     };
