@@ -54,7 +54,7 @@ main:
 
 
 fn_uart_write_char:
-    ld [i], a
+    ld [i], a    ; ld t, a
 
     tx start
     tx
@@ -66,6 +66,7 @@ fn_uart_write_char:
     tx
     tx
     tx stop
+
     jmp k
 
 

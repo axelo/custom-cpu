@@ -8,8 +8,8 @@
 
 #define PORT 2323
 
-#define SIZE (64*1024)
-#define NCLOCKS 14
+#define TX_CLOCKS 13
+#define RX_CLOCKS 13
 
 typedef enum {
     WAITING_FOR_TX_START_BIT,
@@ -23,6 +23,7 @@ static int socket_fd = 0;
 
 static int nfailed = -1;
 
+#define SIZE (64*1024)
 static char input_buffer[SIZE];
 
 static void restore_termios(void) {
@@ -65,21 +66,66 @@ static void enable_terminal_raw_mod(void) {
 static void send_char(char c) {
     uint32_t out_c = (uint16_t)(0x1000 | ((uint16_t)c << 1) | 0);
 
-    uint8_t buf[10 * 13];
+    uint8_t buf[RX_CLOCKS];
 
-    // start bit + 8 bits + stop bit
-    for (int i = 0; i < 10; ++i) {
-        uint8_t out_c_bit = (out_c >> i) & 1;
+    uint8_t out_c_bit = 0;
 
-        for (int j = 0; j < 13; ++j) {
-            buf[i * 13 + j] = out_c_bit;
-        }
+    // start bit
+    out_c_bit = 0;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
     }
+    send(socket_fd, &buf, RX_CLOCKS - 1, 0); // -1 is the key here.
 
-    if (send(socket_fd, buf, sizeof(buf), 0) < 0) {
-        perror("send()");
-        exit(1);
+    out_c_bit = (out_c >> 1) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
     }
+    send(socket_fd, &buf, RX_CLOCKS - 1, 0);
+
+    out_c_bit = (out_c >> 2) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS - 1, 0);
+
+    out_c_bit = (out_c >> 3) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS - 1, 0);
+
+    out_c_bit = (out_c >> 4) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS, 0);
+
+    out_c_bit = (out_c >> 5) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS, 0);
+
+    out_c_bit = (out_c >> 6) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS , 0);
+
+    out_c_bit = (out_c >> 7) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS, 0);
+
+    out_c_bit = (out_c >> 8) & 1;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = out_c_bit;
+    }
+    send(socket_fd, &buf, RX_CLOCKS, 0);
+
+    // stop bit
 }
 
 int main(void) {
@@ -94,7 +140,7 @@ int main(void) {
 
     // socket read timeout
     struct timeval tv = {
-        .tv_sec = 1,
+        .tv_sec = 2,
         .tv_usec = 0
     };
 
@@ -113,7 +159,7 @@ int main(void) {
         return 1;
     }
 
-    printf("connected to the Digital TCP server\r\n");
+    printf("connected to the Digital TCP serve\n");
 
     State state = WAITING_FOR_TX_START_BIT;
     int n_clocks = 0;
@@ -143,9 +189,9 @@ int main(void) {
 
         if (input_c) {
             // if (iscntrl(input_c)) {
-            //   printf("%d\r\n", input_c);
+            //   printf("%\n", input_c);
             // } else {
-            //   printf("%d ('%c')\r\n", input_c, input_c);
+            //   printf("%d ('%c')\n", input_c, input_c);
             // }
 
             if (input_c == ('q' & 0x1f)) exit(0); // ctrl + q
@@ -166,31 +212,29 @@ int main(void) {
 
         prev_tx_bit = tx_bit;
 
+        if (rts_enabled) {
+            // printf("RTS disabled!\n");
+            if (sbuffer != nbuffer) {
+                char c_send = input_buffer[sbuffer];
+
+                // printf(" RTS enabled, sending '%c'\n", c_send);
+                send_char(c_send);
+
+                rts_clocks = 0;
+                if (++sbuffer >= SIZE) sbuffer = 0;
+            }
+
+            rts_enabled = false;
+        }
+
         if (socket_nread > 0) {
             tx_bit = gpo & 1;
 
             uint8_t rts_bit = (~gpo) & 2;
 
-            if (rts_bit && !rts_enabled) {
-                if (sbuffer == nbuffer) {
-                    // printf("RTS enabled, but no char to send!\r\n");
-                } else {
-                    char c_send = input_buffer[sbuffer];
-
-                    // printf("RTS enabled, sending '%c'\n", c_send);
-                    send_char(c_send);
-
-                    if (++sbuffer >= SIZE) sbuffer = 0;
-                }
-
-                rts_clocks = 0;
+            if (rts_bit && !rts_enabled && rts_clocks > (RX_CLOCKS + 4)) {
                 rts_enabled = true;
             }
-        }
-
-        if (rts_enabled && rts_clocks >= NCLOCKS) {
-            // printf("RTS disabled!\n");
-            rts_enabled = false;
         }
 
         if (prev_tx_bit != tx_bit) {
@@ -205,13 +249,13 @@ int main(void) {
             if (tx_bit == 0) {
                 // printf("got start bit, %d\n", n_clocks);
                 state = SAMPLING_TX;
-                n_clocks = 0;
+                n_clocks = -1;
                 n_bits = 0;
             }
         } break;
 
         case SAMPLING_TX: {
-            if (n_clocks >= NCLOCKS) {
+            if (n_clocks >= TX_CLOCKS) {
                 // printf("%d sampling tx bit %d (%d)\n", n_bits, tx_bit, n_clocks);
 
                 tx >>= 1;
@@ -221,8 +265,6 @@ int main(void) {
 
                 if (++n_bits >= 8) {
                     if (tx > 0) {
-                        // if (tx == ('q' & 0x1f)) exit(0);
-
                         fputc(tx, stdout);
 
                         // if (tx != 'U') ++nfailed;
@@ -236,7 +278,7 @@ int main(void) {
         } break;
 
         case WAITING_FOR_TX_STOP_BIT:
-            if (n_clocks >= NCLOCKS) {
+            if (n_clocks >= TX_CLOCKS) {
                 // printf("\ngot stop bit '%d' - %d\n", tx_bit, n_clocks);
                 state = WAITING_FOR_TX_START_BIT;
             }
