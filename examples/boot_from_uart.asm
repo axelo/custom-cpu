@@ -43,10 +43,7 @@ main:
     rx
     rx
     rx
-    rx
-
-    ld i, 0xfff2
-    ld a, [i];    ; ld a, t
+    ld a, rx
 
     jal k, fn_uart_write_char
 
@@ -54,9 +51,7 @@ main:
 
 
 fn_uart_write_char:
-    ld [i], a    ; ld t, a
-
-    tx start
+    ld tx, a
     tx
     tx
     tx
@@ -71,10 +66,10 @@ fn_uart_write_char:
 
 
 fn_uart_write_string:
-    ld t, [i++]
-    jcmpz t, k
+    ld a, [i++]
+    jcmpz k, a
 
-    tx start
+    ld tx, a
     tx
     tx
     tx

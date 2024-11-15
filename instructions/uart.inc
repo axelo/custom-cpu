@@ -8,9 +8,9 @@ static inline uint16_t instruction_out_tx_start(Operands o, uint8_t s, uint8_t t
     case 0x5: return OE_ALU | LD_T;                               // T = 0xfe
     case 0x6: return OE_T;
     case 0x7: return OE_T   | SEL_C_LD_GPO;                       // GPO = T
-    case 0x8: return OE_T;
-    case 0x9: return OE_T;
-    case 0xa: return OE_T                   | LD_CSEL(C_MH | C);
+    case 0x8: return OE_T                   | LD_CSEL(o.src.r8 | C);
+    case 0x9: return OE_MEM | LD_T          | LD_CSEL(C_T | C);
+    case 0xa: return OE_T   | LD_MEM        | LD_CSEL(C_MH | C);
     case 0xb: return OE_MEM | LD_MH         | LD_CSEL(C_ML | C);
     case 0xc: return OE_MEM | LD_ML | LD_S  | LD_CSEL(M);
     }
@@ -91,6 +91,25 @@ static inline uint16_t instruction_in_rx(Operands o, uint8_t s, uint8_t tf) {
     return OE_T;
 }
 
+static inline uint16_t instruction_in_rx_stop_r8(Operands o, uint8_t s, uint8_t tf) {
+    switch (s) {
+    case 0x0: return S0_FETCH;
+    case 0x1: return OE_T         |                          LD_CSEL(C_MH | C);    // C = C_MH
+    case 0x2: return OE_ALU       | LD_MEM                 | LD_CSEL(C_ML | C);    // mem[C] = MH, C = C_ML
+    case 0x3: return OE_ALU       | LD_MEM                 | LD_CSEL(C_FF | C);
+    case 0x4: return OE_MEM       | LD_ML | LD_MH          | LD_CSEL(A_ADD | C);
+    case 0x5: return OE_ALU       | LD_ML                  | LD_CSEL(C_T | C);     // ML = 0xfe
+    case 0x6: return OE_MEM       | LD_MH | LD_T;                                  // MH = mem[C_T], LD_T = LD_GPI
+    case 0x7: return SEL_C_OE_GPI | SEL_C_LD_TF;
+    case 0x8: return OE_T         | ((tf & 1) ? INC_M : 0) | LD_CSEL(A_UNARY | C); // ML = 0xfe or 0xff
+    case 0x9: return OE_ALU       | LD_T                   | LD_CSEL(o.dst.r8 | C);
+    case 0xa: return OE_T         | LD_MEM                 | LD_CSEL(C_MH | C);    // mem[C_T] = T
+    case 0xb: return OE_MEM       | LD_MH                  | LD_CSEL(C_ML | C);
+    case 0xc: return OE_MEM       | LD_ML | LD_S           | LD_CSEL(M);
+    }
+    return OE_T;
+}
+
 // static inline uint16_t instruction_in_uart_next_bit_old(uint8_t tf, uint8_t s) {
 //     switch (s) {
 //     case 0x0: return S0_FETCH;
@@ -113,6 +132,7 @@ static inline uint16_t instruction_in_rx(Operands o, uint8_t s, uint8_t tf) {
 
 static bool test_instruction_out_tx_start(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
     if (after == NULL) {
+        before->mem[0xfff0 | o.src.r8] = 0xab;
         return permutation >= 7;
     };
 
@@ -123,6 +143,14 @@ static bool test_instruction_out_tx_start(int permutation, Operands o, char **bu
 
     if (expected_gpo != actual_gpo) {
         *buffer_ptr += sprintf(*buffer_ptr, "expected gpo to be 0x%02x, is 0x%02x\n", expected_gpo, actual_gpo);
+        return true;
+    }
+
+    uint8_t actual_r8 = after->mem[0xfff0 | C_T];
+    uint8_t expected_r8 = after->mem[0xfff0 | o.src.r8];
+
+    if (actual_r8 != expected_r8) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected C_T to be r8 (%d) with value 0x%02x, is 0x%02x\n", o.src.r8, expected_r8, actual_r8);
         return true;
     }
 
@@ -227,3 +255,27 @@ static bool test_instruction_in_rx(int permutation, Operands o, char **buffer_pt
 
     return false;
 }
+
+static bool test_instruction_in_rx_stop_r8(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    uint8_t u8 = 'U'; // 0x55 0101 0101
+
+    if (after == NULL) {
+        before->mem[0xfff0 | C_T] = (uint8_t)(u8 << 1);
+
+        before->in_rx = (u8 >> 7) & 1;
+
+        return true;
+    };
+
+    if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) return true;
+
+    uint8_t actual_r8   = after->mem[0xfff0 | o.dst.r8];
+
+    if (actual_r8 != u8) {
+        *buffer_ptr += sprintf(*buffer_ptr, "expected r8 (%d) to be 0x%02x, is 0x%02x\n", o.dst.r8, u8, actual_r8);
+        return true;
+    }
+
+    return false;
+}
+

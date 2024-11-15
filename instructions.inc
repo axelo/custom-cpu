@@ -211,7 +211,7 @@ typedef enum {
 
     JAL_K_I16,
 
-    JCMPZ_T_K,
+    JCMPZ_A_K,
 
     PUSH_A,
 
@@ -229,6 +229,7 @@ typedef enum {
 
     IN_RX_START_I16,
     IN_RX,
+    IN_RX_STOP_R8,
 
     SPI0_BEGIN,
     SPI0_NEXT,
@@ -768,10 +769,10 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
         .test = test_instruction_jal_r16_i16,
     },
 
-    [JCMPZ_T_K] = {
-        .customasm = "jcmpz t, k",
+    [JCMPZ_A_K] = {
+        .customasm = "jcmpz k, a",
         .signals = instruction_jcmpz_r8_r16,
-        .operands = { .src = { .r8 = C_T }, .dst = { .rh8 = C_KH, .rl8 = C_KL } },
+        .operands = { .dst = { .rh8 = C_KH, .rl8 = C_KL }, .src = { .r8 = C_A } },
         .test = test_instruction_jcmpz_r8_r16
     },
 
@@ -810,8 +811,9 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
     },
 
     [OUT_TX_START] = {
-        .customasm = "tx start",
+        .customasm = "ld tx, a",
         .signals = instruction_out_tx_start,
+        .operands = { .src = { .r8 = C_A } },
         .test = test_instruction_out_tx_start,
     },
 
@@ -837,6 +839,13 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
         .customasm = "rx",
         .signals = instruction_in_rx,
         .test = test_instruction_in_rx,
+    },
+
+    [IN_RX_STOP_R8] = {
+        .customasm = "ld a, rx",
+        .signals = instruction_in_rx_stop_r8,
+        .operands = { .dst = { .r8 = C_A } },
+        .test = test_instruction_in_rx_stop_r8
     },
 
     [SPI0_BEGIN] = {

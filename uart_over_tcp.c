@@ -21,21 +21,17 @@ static struct termios orig_termios;
 
 static int socket_fd = 0;
 
-static int nfailed = -1;
-
 #define SIZE (64*1024)
 static char input_buffer[SIZE];
 
 static void restore_termios(void) {
-    printf("restoring terminal\n");
+    printf("\nrestoring terminal\n");
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
 
     if (socket_fd) {
         printf("closing socket\n");
         close(socket_fd);
     }
-
-    printf("nfailed: %d\n", nfailed);
 }
 
 static void enable_terminal_raw_mod(void) {
@@ -64,18 +60,21 @@ static void enable_terminal_raw_mod(void) {
 }
 
 static void send_char(char c) {
-    uint32_t out_c = (uint16_t)(0x1000 | ((uint16_t)c << 1) | 0);
+    uint8_t out_c = (uint8_t)c;
 
     uint8_t buf[RX_CLOCKS];
 
-    uint8_t out_c_bit = 0;
-
     // start bit
-    out_c_bit = 0;
+    for (int j = 0; j < RX_CLOCKS; ++j) {
+        buf[j] = 0;
+    }
+    send(socket_fd, &buf, RX_CLOCKS - 1, 0); // -1 is the key here.
+
+    uint8_t out_c_bit = (out_c >> 0) & 1;
     for (int j = 0; j < RX_CLOCKS; ++j) {
         buf[j] = out_c_bit;
     }
-    send(socket_fd, &buf, RX_CLOCKS - 1, 0); // -1 is the key here.
+    send(socket_fd, &buf, RX_CLOCKS - 1, 0);
 
     out_c_bit = (out_c >> 1) & 1;
     for (int j = 0; j < RX_CLOCKS; ++j) {
@@ -93,7 +92,7 @@ static void send_char(char c) {
     for (int j = 0; j < RX_CLOCKS; ++j) {
         buf[j] = out_c_bit;
     }
-    send(socket_fd, &buf, RX_CLOCKS - 1, 0);
+    send(socket_fd, &buf, RX_CLOCKS, 0);
 
     out_c_bit = (out_c >> 4) & 1;
     for (int j = 0; j < RX_CLOCKS; ++j) {
@@ -105,21 +104,15 @@ static void send_char(char c) {
     for (int j = 0; j < RX_CLOCKS; ++j) {
         buf[j] = out_c_bit;
     }
-    send(socket_fd, &buf, RX_CLOCKS, 0);
+    send(socket_fd, &buf, RX_CLOCKS , 0);
 
     out_c_bit = (out_c >> 6) & 1;
     for (int j = 0; j < RX_CLOCKS; ++j) {
         buf[j] = out_c_bit;
     }
-    send(socket_fd, &buf, RX_CLOCKS , 0);
-
-    out_c_bit = (out_c >> 7) & 1;
-    for (int j = 0; j < RX_CLOCKS; ++j) {
-        buf[j] = out_c_bit;
-    }
     send(socket_fd, &buf, RX_CLOCKS, 0);
 
-    out_c_bit = (out_c >> 8) & 1;
+    out_c_bit = (out_c >> 7) & 1;
     for (int j = 0; j < RX_CLOCKS; ++j) {
         buf[j] = out_c_bit;
     }
@@ -213,7 +206,6 @@ int main(void) {
         prev_tx_bit = tx_bit;
 
         if (rts_enabled) {
-            // printf("RTS disabled!\n");
             if (sbuffer != nbuffer) {
                 char c_send = input_buffer[sbuffer];
 
@@ -232,7 +224,7 @@ int main(void) {
 
             uint8_t rts_bit = (~gpo) & 2;
 
-            if (rts_bit && !rts_enabled && rts_clocks > (RX_CLOCKS + 4)) {
+            if (rts_bit && !rts_enabled && rts_clocks > (RX_CLOCKS + 7)) {
                 rts_enabled = true;
             }
         }
@@ -249,7 +241,7 @@ int main(void) {
             if (tx_bit == 0) {
                 // printf("got start bit, %d\n", n_clocks);
                 state = SAMPLING_TX;
-                n_clocks = -1;
+                n_clocks = 0;
                 n_bits = 0;
             }
         } break;
@@ -266,11 +258,7 @@ int main(void) {
                 if (++n_bits >= 8) {
                     if (tx > 0) {
                         fputc(tx, stdout);
-
-                        // if (tx != 'U') ++nfailed;
                     }
-
-                    if (nfailed < 0) nfailed = 0;
 
                     state = WAITING_FOR_TX_STOP_BIT;
                 }
@@ -284,11 +272,6 @@ int main(void) {
             }
 
             break;
-        }
-
-        if (nfailed > 1) {
-            printf("nope :/\n");
-            exit(3);
         }
     }
 
