@@ -66,13 +66,79 @@ static bool test_instruction_jcmpz_r8_r16(int permutation, Operands o, char **bu
     } else {
         if (test_instruction_expect_pc_step(1, buffer_ptr, before, after)) {
             *buffer_ptr += sprintf(*buffer_ptr, "expected pc not to jump - test r8 (%d): 0x%x\n", o.src.r8, actual_r8_value);
-
             return true;
         }
     }
 
     return false;
 }
+
+static inline uint16_t instruction_jcmpz_r8_i16(Operands o, uint8_t s, uint8_t tf) {
+    switch (s) {
+    case 0x0: return S0_FETCH;
+    case 0x1: return OE_MEM | LD_T | INC_M   | LD_CSEL(C_MH | C); // T = hi addr, M++
+    case 0x2: return OE_ALU | LD_MEM         | LD_CSEL(C_ML | C);
+    case 0x3: return OE_ALU | LD_MEM         | LD_CSEL(C_FF | C);
+    case 0x4: return OE_MEM | LD_ML | LD_MH  | LD_CSEL(A_NAND);
+    case 0x5: return OE_ALU | LD_ML          | LD_CSEL(o.src.r8 | C); // ML = 0
+    case 0x6: return OE_MEM | LD_MH          | LD_CSEL(A_ADD_F);
+    case 0x7: return OE_ALU | SEL_C_LD_TF;
+    case 0x8: return OE_T                    | LD_CSEL(C_MH | C);
+    case 0x9: return OE_MEM | LD_MH          | LD_CSEL(C_ML | C);
+    }
+
+    if (TF_TO_F(tf) & F_Z) {
+        // zero, do jump
+        switch (s) {
+        case 0xa: return OE_MEM | LD_ML         | LD_CSEL(M);
+        case 0xb: return OE_MEM | LD_ML;
+        case 0xc: return OE_T   | LD_MH | LD_S;
+        }
+
+    } else {
+        // not zero, do not jump
+        switch (s) {
+        case 0xa: return OE_MEM | LD_ML;
+        case 0xb: return OE_T   | INC_M | LD_S | LD_CSEL(M);
+        }
+    }
+
+    return OE_T;
+}
+
+static bool test_instruction_jcmpz_r8_i16(int permutation, Operands o, char **buffer_ptr, test_State* before, test_State* after) {
+    srand((uint32_t)(permutation + 47));
+    uint16_t i16 = (uint16_t)(((~before->mh & 0xf0) << 8) | (rand() & 0xff));
+
+    if (after == NULL) {
+        before->mem[test_state_M(before) + 1] = i16 >> 8;
+        before->mem[test_state_M(before) + 2] = i16 & 0xff;
+
+        before->mem[0xfff0 | o.src.r8] = (uint8_t)permutation;
+
+        return permutation >= 0xff;
+    }
+
+    uint8_t actual_r8_value = before->mem[0xfff0 | o.src.r8];
+
+    if (actual_r8_value == 0) {
+        uint16_t actual_pc = test_state_M(after);
+        uint16_t expected_pc = i16;
+
+        if (actual_pc != expected_pc) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc to jump to 0x%04x, is 0x%04x - test r8 (%d): 0x%x\n", expected_pc, actual_pc, o.src.r8, actual_r8_value);
+            return true;
+        }
+    } else {
+        if (test_instruction_expect_pc_step(3, buffer_ptr, before, after)) {
+            *buffer_ptr += sprintf(*buffer_ptr, "expected pc not to jump - test r8 (%d): 0x%x\n", o.src.r8, actual_r8_value);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 #include "instructions/reset.inc"
 #include "instructions/nop.inc"
@@ -89,6 +155,7 @@ static bool test_instruction_jcmpz_r8_r16(int permutation, Operands o, char **bu
 #include "instructions/add_r8_i8.inc"
 #include "instructions/addc_r8_i8.inc"
 #include "instructions/subc_r8_i8.inc"
+#include "instructions/dec_r8.inc"
 #include "instructions/shl_r8.inc"
 #include "instructions/shr_r8.inc"
 #include "instructions/and_r8_i8.inc"
@@ -193,6 +260,9 @@ typedef enum {
 
     SUBC_A_I8,
 
+    DEC_B,
+    DEC_C,
+
     SHL_A,
 
     SHR_A,
@@ -212,6 +282,7 @@ typedef enum {
     JAL_K_I16,
 
     JCMPZ_A_K,
+    JCMPZ_C_I16,
 
     PUSH_A,
 
@@ -693,6 +764,20 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
         .test = test_instruction_subc_r8_i8,
     },
 
+    [DEC_B] = {
+        .customasm = "dec b",
+        .signals = instruction_dec_r8,
+        .operands = { .dst = { .r8 = C_B } },
+        .test = test_instruction_dec_r8,
+    },
+
+    [DEC_C] = {
+        .customasm = "dec c",
+        .signals = instruction_dec_r8,
+        .operands = { .dst = { .r8 = C_C } },
+        .test = test_instruction_dec_r8,
+    },
+
     [SHL_A] = {
         .customasm = "shl a",
         .signals = instruction_shl_r8,
@@ -770,10 +855,17 @@ static const Instruction instructions[N_INSTRUCTIONS] = {
     },
 
     [JCMPZ_A_K] = {
-        .customasm = "jcmpz k, a",
+        .customasm = "jcmpz a, k",
         .signals = instruction_jcmpz_r8_r16,
         .operands = { .dst = { .rh8 = C_KH, .rl8 = C_KL }, .src = { .r8 = C_A } },
         .test = test_instruction_jcmpz_r8_r16
+    },
+
+    [JCMPZ_C_I16] = {
+        .customasm = "jcmpz c, {imm:i16}",
+        .signals = instruction_jcmpz_r8_i16,
+        .operands = { .src = { .r8 = C_C } },
+        .test = test_instruction_jcmpz_r8_i16
     },
 
     [PUSH_A] = {
