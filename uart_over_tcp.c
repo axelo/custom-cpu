@@ -133,7 +133,7 @@ int main(void) {
 
     // socket read timeout
     struct timeval tv = {
-        .tv_sec = 2,
+        .tv_sec = 10,
         .tv_usec = 0
     };
 
@@ -152,7 +152,7 @@ int main(void) {
         return 1;
     }
 
-    printf("connected to the Digital TCP serve\n");
+    printf("connected to the Digital TCP server\n");
 
     State state = WAITING_FOR_TX_START_BIT;
     int n_clocks = 0;

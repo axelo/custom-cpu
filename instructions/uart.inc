@@ -278,4 +278,3 @@ static bool test_instruction_in_rx_stop_r8(int permutation, Operands o, char **b
 
     return false;
 }
-
