@@ -328,24 +328,60 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         switch (s) {
         case 0x0: return S0_FETCH;
 
-        case 0x1: return OE_ALU | LD_C(0b1101) | LD_GPO; // Assert RTS
-        case 0x2: return OE_ALU;
-        case 0x3: return OE_ALU;
-        case 0x4: return OE_ALU;
-        case 0x5: return OE_ALU;
-        case 0x6: return OE_ALU;
-        case 0x7: return OE_ALU;
-        case 0x8: return OE_ALU;
-        case 0x9: return OE_ALU;
-        case 0xa: return OE_ALU;
-        case 0xb: return OE_ALU; // TODO: Should we delay with more or less clocks? Seems like more.
+        // TODO: Understand how long we can assert RTS
+        // to check if we have anything ready without
+        // triggering a next send. Maybe it isn't possible?
 
-        case 0xc: return SEL_C_OE_GPI | LD_TF; // Store inputs into TF
+        case 0x1: return OE_ALU | LD_C(0b1101) | LD_GPO; // Assert RTS
+        case 0x2: return OE_ALU | LD_C(0b1111) | LD_GPO; // Deassert RTS
+
+        case 0x3: return SEL_C_OE_GPI | LD_TF; // Store inputs into TF
+
+        case 0x4: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0x5: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0x6: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0x7: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0x8: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0x9: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0xa: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0xb: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0xc: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
 
         case 0xd: return (tf & 1)
-                    ? LD_C(0b1111) | LD_GPO // Deassert RTS, no start bit received
-                    : OE_T;                 // Keep RTS assserted, start bit received
-        case 0xe: return OE_ALU | LD_C(M) | LD_S;
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0xe: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0xf: return OE_ALU | LD_C(M) | LD_S;
         }
         break;
 
@@ -358,11 +394,11 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         case 0x3: return OE_ALU | LD_MEM;
 
         case 0x4: return OE_T   | LD_RL | LD_RH  | LD_C(A_ADD);
-        case 0x5: return SEL_C_OE_GPI | LD_TF;                    // Store inputs into TF
-        case 0x6: return OE_ALU | LD_T  | LD_RH  | LD_C(A_FF);    // T, RH = shl t, 1
+        case 0x5: return OE_ALU | LD_T  | LD_RH  | LD_C(A_FF);    // T, RH = shl t, 1
 
-        case 0x7: return OE_ALU | LD_RL          | LD_C(A_UNARY); // RL = 0xff (inc rh, 1)
+        case 0x6: return OE_ALU | LD_RL          | LD_C(A_UNARY); // RL = 0xff (inc rh, 1)
 
+        case 0x7: return SEL_C_OE_GPI | LD_TF;                    // Store inputs into TF
         case 0x8: return ((tf & 1) ? (OE_ALU | LD_T) : OE_T) | LD_C(RL | CN);
         case 0x9: return OE_MEM | LD_RL          | LD_C(RH | CN);
         case 0xa: return OE_MEM | LD_RH          | LD_C(M) | LD_S;
@@ -375,11 +411,15 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         case 0x1: return OE_ALU                  | LD_C(RL | CN);
         case 0x2: return OE_ALU | LD_MEM         | LD_C(RH | CN);
         case 0x3: return OE_ALU | LD_MEM;
-        case 0x4: return OE_T   | LD_RL | LD_RH;                  // RL,RH = T
-        case 0x5: return SEL_C_OE_GPI   | LD_TF;                  // Store inputs into TF
-        case 0x6: return OE_ALU         | LD_GPO | LD_C(0b1111);  // Deassert RTS on the last bit before stop bit (TODO: when is best to deassert RTS?)
-        case 0x7: return OE_ALU                  | LD_C(A_ADD);
-        case 0x8: return OE_ALU | LD_T           | LD_C(A_FF);    // T = shl T, 1
+
+        case 0x4: return OE_T   | LD_RL | LD_RH  | LD_C(A_ADD);
+        case 0x5: return OE_ALU | LD_T  | LD_RH  | LD_C(A_FF);    // T, RH = shl t, 1
+
+        case 0x6: return OE_ALU | LD_RL          | LD_C(A_UNARY); // RL = 0xff (inc rh, 1)
+
+        case 0x7: return SEL_C_OE_GPI | LD_TF;                    // Store inputs into TF
+        case 0x8: return ((tf & 1) ? (OE_ALU | LD_T) : OE_T) | LD_C(A_FF);
+
         case 0x9: return OE_ALU | LD_RL | LD_RH  | LD_C(A_ADD);
         case 0xa: return OE_ALU | LD_RL;                          // RL = 0xfe (reverse bits rh)
         case 0xb: return OE_T   | LD_RH          | LD_C(A  | CN); // RH = T, assumes A = A_UNARY
