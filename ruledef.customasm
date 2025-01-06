@@ -1,0 +1,27 @@
+#bankdef memory {
+    #bits     8
+    #addr     0
+    #addr_end 0x10000
+    #outp     0
+}
+
+#ruledef instructions {
+    nop => 0x00
+
+    ld a, {imm:i8} => 0x01 @ imm
+
+    ld tx, a => 0x0f
+    tx       => 0x11
+    tx stop  => 0x12
+
+    rx start => 0x20
+    rx       => 0x21
+    ld a, rx => 0x22
+
+    inc a => 0x70
+    cmp a, {imm:i8} => 0x71 @ imm
+
+    jp  {imm:i16} => 0x80 @ imm
+    jc  {imm:i16} => 0x81 @ imm
+    jnz {imm:i16} => 0x84 @ imm
+}
