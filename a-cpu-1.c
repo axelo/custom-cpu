@@ -14,9 +14,11 @@
 #define TX_START_I8   0x10
 #define TX            0x11
 #define TX_STOP       0x12
-#define RX_START      0x20
-#define RX            0x21
-#define RX_LAST       0x22
+#define RX_RTS        0x20
+#define RX_TEST       0x21
+#define RX_FIRST      0x22
+#define RX            0x23
+#define RX_LAST       0x24
 #define INC_A         0x70
 #define CMP_A_I8      0x71
 #define JP_I16        0x80
@@ -324,18 +326,32 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         }
         break;
 
-    case RX_START:
+    case RX_RTS:
         switch (s) {
         case 0x0: return S0_FETCH;
 
-        // TODO: Understand how long we can assert RTS
-        // to check if we have anything ready without
-        // triggering a next send. Maybe it isn't possible?
-
         case 0x1: return OE_ALU | LD_C(0b1101) | LD_GPO; // Assert RTS
-        case 0x2: return OE_ALU | LD_C(0b1111) | LD_GPO; // Deassert RTS
+        case 0x2: return OE_ALU;
+        case 0x3: return OE_ALU;
+        case 0x4: return OE_ALU | LD_C(0b1111) | LD_GPO; // Deassert RTS
 
-        case 0x3: return SEL_C_OE_GPI | LD_TF; // Store inputs into TF
+        case 0x5: return OE_ALU | LD_C(M) | LD_S;
+        }
+        break;
+
+    case RX_TEST:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+
+        case 0x1: return SEL_C_OE_GPI | LD_TF; // Store inputs into TF
+
+        case 0x2: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+
+        case 0x3: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_ALU | LD_C(M) | LD_S; // start bit received
 
         case 0x4: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
@@ -385,6 +401,28 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         }
         break;
 
+    case RX_FIRST:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+
+        case 0x1: return OE_ALU;
+
+        case 0x2: return OE_ALU |                  LD_C(RL | CN);
+        case 0x3: return OE_ALU | LD_MEM         | LD_C(RH | CN);
+        case 0x4: return OE_ALU | LD_MEM;
+
+        case 0x5: return OE_T   | LD_RL | LD_RH  | LD_C(A_ADD);
+        case 0x6: return OE_ALU | LD_T  | LD_RH  | LD_C(A_FF);    // T, RH = shl t, 1
+
+        case 0x7: return OE_ALU | LD_RL          | LD_C(A_UNARY); // RL = 0xff (inc rh, 1)
+
+        case 0x8: return SEL_C_OE_GPI | LD_TF;                    // Store inputs into TF
+        case 0x9: return ((tf & 1) ? (OE_ALU | LD_T) : OE_T) | LD_C(RL | CN);
+        case 0xa: return OE_MEM | LD_RL          | LD_C(RH | CN);
+        case 0xb: return OE_MEM | LD_RH          | LD_C(M) | LD_S;
+        }
+        break;
+
     case RX:
         switch (s) {
         case 0x0: return S0_FETCH;
@@ -428,26 +466,6 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         case 0xe: return OE_MEM | LD_RH          | LD_C(M) | LD_S;
         }
         break;
-
-    // case IN_RX_LAST:
-    //     switch (s) {
-    //     case 0x0: return S0_FETCH;
-
-    //     case 0x1: return OE_ALU                  | LD_C(0b1111) | LD_GPO; // Deassert RTS
-
-    //     case 0x2: return OE_ALU |                  LD_C(RL | CN);
-    //     case 0x3: return OE_ALU | LD_MEM         | LD_C(RH | CN);
-    //     case 0x4: return OE_ALU | LD_MEM         | LD_C(A_FF);
-
-    //     case 0x5: return OE_ALU | LD_RL | LD_RH  | LD_C(A_ADD);
-    //     case 0x6: return OE_ALU | LD_RL; // RL = 0xfe (reverse bits rh)
-
-    //     case 0x7: return OE_T   | LD_RH          | LD_C(A | CN); // Assumes A = A_UNARY
-    //     case 0x8: return OE_ALU | LD_MEM         | LD_C(RL | CN);
-    //     case 0x9: return OE_MEM | LD_RL          | LD_C(RH | CN);
-    //     case 0xa: return OE_MEM | LD_RH          | LD_C(M) | LD_S;
-    //     }
-    //     break;
 
     case JP_I16:
         switch (s) {
@@ -636,10 +654,10 @@ static bool write_rom(size_t size, uint8_t rom[size], const char *filename) {
 
 int main(void) {
     uint8_t rom_program[ROM_SIZE_PROGRAM] = {
-    /* 0x00 */ 0x00, 0x01, 0x45, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x20, 0x81, 0x00,
-    /* 0x10 */ 0x0d, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x22, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
-    /* 0x20 */ 0x11, 0x11, 0x12, 0x80, 0x00, 0x0d
-};
+    /* 0x00 */ 0x00, 0x01, 0x45, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x20, 0x21, 0x81,
+    /* 0x10 */ 0x00, 0x0d, 0x22, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x24, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11,
+    /* 0x20 */ 0x11, 0x11, 0x11, 0x12, 0x80, 0x00, 0x0d
+    };
 
     // for (uint16_t i = 0; i < ROM_SIZE_PROGRAM; ++i) {
     //     rom_program[i] = (i + 1) & 0xff;

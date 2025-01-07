@@ -2978,10 +2978,10 @@ between two pages of 7 bits</string>
         </entry>
         <entry>
           <string>Description</string>
-          <string>This is two NAND gates</string>
+          <string>This is two NAND gates. Rem. to route ~LD I</string>
         </entry>
       </elementAttributes>
-      <pos x="1100" y="500"/>
+      <pos x="1020" y="500"/>
     </visualElement>
     <visualElement>
       <elementName>Text</elementName>

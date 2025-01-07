@@ -17,10 +17,11 @@ main:
     tx stop
 
 wait_until_rx_start_bit:
-    rx start
+    rx rts
+    rx test
     jc wait_until_rx_start_bit
 
-    rx ; 11 clocks delta between clocking rx bit
+    rx first; 11 clocks delta between clocking rx bit
     rx
     rx
     rx
@@ -28,6 +29,8 @@ wait_until_rx_start_bit:
     rx
     rx
     ld a, rx
+
+    nop
 
     ; Echo recevied byte back over tx
     ld tx, a
