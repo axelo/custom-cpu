@@ -14,7 +14,8 @@
     tx       => 0x11
     tx stop  => 0x12
 
-    rx rts   => 0x20
+    rx rts start => 0x20
+    rx rts stop  => 0x25
     rx test  => 0x21
     rx first => 0x22
     rx       => 0x23

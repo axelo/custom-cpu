@@ -17,9 +17,12 @@ main:
     tx stop
 
 wait_until_rx_start_bit:
-    rx rts
+    rx rts start
     rx test
-    rx test
+    ;rx test
+    ; rx test
+    ;rx rts stop
+    ; rx test
     ; rx test
     jc wait_until_rx_start_bit
 

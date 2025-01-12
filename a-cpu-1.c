@@ -14,7 +14,8 @@
 #define TX_START_I8   0x10
 #define TX            0x11
 #define TX_STOP       0x12
-#define RX_RTS        0x20
+#define RX_RTS_START  0x20
+#define RX_RTS_STOP   0x25
 #define RX_TEST       0x21
 #define RX_FIRST      0x22
 #define RX            0x23
@@ -326,26 +327,32 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         }
         break;
 
-    case RX_RTS:
+    case RX_RTS_START:
         switch (s) {
         case 0x0: return S0_FETCH;
+        case 0x1: return OE_MEM | LD_C(0b0101) | LD_GPO; // Assert RTS
+        case 0x2: return OE_MEM;
+        case 0x3: return OE_MEM;
+        case 0x4: return OE_MEM;
+        case 0x5: return OE_MEM;
+        case 0x6: return OE_MEM;
+        case 0x7: return OE_MEM;
+        case 0x8: return OE_MEM;
+        case 0x9: return OE_MEM;
+        case 0xa: return OE_MEM;
+        case 0xb: return OE_MEM;
+        case 0xc: return OE_MEM;
+        case 0xd: return OE_MEM;
+        case 0xe: return SEL_C_OE_GPI | LD_TF;
+        case 0xf: return OE_MEM | LD_C(0b0111) | LD_GPO | LD_S; // Deassert RTS
+        }
+        break;
 
-        case 0x1: return OE_ALU | LD_C(0b1101) | LD_GPO; // Assert RTS
-        case 0x2: return OE_ALU;
-        case 0x3: return OE_ALU;
-        case 0x4: return OE_ALU;
-        case 0x5: return OE_ALU;
-        case 0x6: return OE_ALU;
-        case 0x7: return OE_ALU;
-        case 0x8: return OE_ALU;
-        case 0x9: return OE_ALU;
-        case 0xa: return OE_ALU;
-        case 0xb: return OE_ALU;
-        case 0xc: return OE_ALU;
-        case 0xd: return OE_ALU;
-        case 0xe: return OE_ALU | LD_C(0b1111) | LD_GPO; // Deassert RTS
-
-        case 0xf: return OE_ALU | LD_C(M) | LD_S;
+    case RX_RTS_STOP:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+        case 0x1: return OE_ALU | LD_C(0b0111) | LD_GPO | LD_S; // Deassert RTS
+        // case 0x2: return OE_ALU | LD_C(M) | LD_S;
         }
         break;
 
@@ -353,61 +360,63 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         switch (s) {
         case 0x0: return S0_FETCH;
 
-        case 0x1: return SEL_C_OE_GPI | LD_TF; // Store inputs into TF
+        case 0x1: return (tf & 1)
+                    ? SEL_C_OE_GPI | LD_TF
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x2: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x3: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x4: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x5: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x6: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x7: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x8: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0x9: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0xa: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0xb: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0xc: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0xd: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
         case 0xe: return (tf & 1)
                     ? SEL_C_OE_GPI | LD_TF
-                    : OE_ALU | LD_C(M) | LD_S; // start bit received
+                    : OE_MEM | LD_C(M) | LD_S; // start bit received
 
-        case 0xf: return OE_ALU | LD_C(M) | LD_S;
+        case 0xf: return OE_MEM | LD_C(M) | LD_S;
         }
         break;
 
@@ -444,9 +453,9 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         case 0x4: return OE_T   | LD_RL | LD_RH  | LD_C(A_ADD);
         case 0x5: return OE_ALU | LD_T  | LD_RH  | LD_C(A_FF);    // T, RH = shl t, 1
 
-        case 0x6: return OE_ALU | LD_RL          | LD_C(A_UNARY); // RL = 0xff (inc rh, 1)
+        case 0x6: return SEL_C_OE_GPI | LD_TF;                    // Store inputs into TF
+        case 0x7: return OE_ALU | LD_RL          | LD_C(A_UNARY); // RL = 0xff (inc rh, 1)
 
-        case 0x7: return SEL_C_OE_GPI | LD_TF;                    // Store inputs into TF
         case 0x8: return ((tf & 1) ? (OE_ALU | LD_T) : OE_T) | LD_C(RL | CN);
         case 0x9: return OE_MEM | LD_RL          | LD_C(RH | CN);
         case 0xa: return OE_MEM | LD_RH          | LD_C(M) | LD_S;
@@ -673,9 +682,9 @@ static bool write_rom(size_t size, uint8_t rom[size], const char *filename) {
 
 int main(void) {
     uint8_t rom_program[ROM_SIZE_PROGRAM] = {
-    /* 0x00 */ 0x00, 0x01, 0x45, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x20, 0x21, 0x21,
-    /* 0x10 */ 0x81, 0x00, 0x0d, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x24, 0x0f, 0x11, 0x11, 0x11, 0x11,
-    /* 0x20 */ 0x11, 0x11, 0x11, 0x11, 0x12, 0x80, 0x00, 0x0d
+    /* 0x00 */ 0x00, 0x01, 0x45, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x20, 0x21, 0x81,
+    /* 0x10 */ 0x00, 0x0d, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x24, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11,
+    /* 0x20 */ 0x11, 0x11, 0x11, 0x12, 0x80, 0x00, 0x0d
     };
 
     // for (uint16_t i = 0; i < ROM_SIZE_PROGRAM; ++i) {
