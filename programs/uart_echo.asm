@@ -18,12 +18,11 @@ main:
 
 wait_until_rx_start_bit:
     rx rts start
+    rx rts stop
     rx test
-    ;rx test
-    ; rx test
-    ;rx rts stop
-    ; rx test
-    ; rx test
+    rx test
+    rx test
+    rx test
     jc wait_until_rx_start_bit
 
     rx; 11 clocks delta between clocking rx bit

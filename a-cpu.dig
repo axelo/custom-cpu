@@ -3144,7 +3144,7 @@ between two pages of 7 bits</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>S_EN</string>
+          <string>~S_EN</string>
         </entry>
         <entry>
           <string>intFormat</string>
