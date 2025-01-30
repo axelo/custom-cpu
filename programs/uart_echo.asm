@@ -2,7 +2,7 @@
 
 main:
     nop
-
+    
     ; Send an E to verify uart setup is correct
     ld a, "E"
     ld tx, a
@@ -16,14 +16,12 @@ main:
     tx
     tx stop
 
+enable_rts:
+    out 0b1101
 wait_until_rx_start_bit:
-    rx rts start
-    rx rts stop
-    rx test
-    rx test
-    rx test
-    rx test
+    in f
     jc wait_until_rx_start_bit
+    out 0b1111
 
     rx; 11 clocks delta between clocking rx bit
     rx
@@ -34,7 +32,7 @@ wait_until_rx_start_bit:
     rx
     ld a, rx
 
-    ; Echo recevied byte back over tx
+    ; Echo received byte back over tx
     ld tx, a
     tx
     tx
@@ -47,4 +45,4 @@ wait_until_rx_start_bit:
     tx stop
 
     ; Wait again
-    jp wait_until_rx_start_bit
+    jp enable_rts

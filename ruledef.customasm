@@ -21,6 +21,9 @@
     rx       => 0x23
     ld a, rx => 0x24
 
+    out {imm:i4} => (0x90 + imm)`8
+    in f         => 0xa0
+
     inc a => 0x70
     cmp a, {imm:i8} => 0x71 @ imm
 

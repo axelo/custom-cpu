@@ -25,6 +25,10 @@
 #define JP_I16        0x80
 #define JC_I16        0x81
 #define JNZ_I16       0x84
+#define OUT_11        0x9b
+#define OUT_13        0x9d
+#define OUT_15        0x9f
+#define IN_F          0xa0
 
 // Rom sizes
 #define ROM_SIZE_SIGNALS  (1 << 17) // 128 KB
@@ -351,8 +355,9 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
     case RX_RTS_STOP:
         switch (s) {
         case 0x0: return S0_FETCH;
-        case 0x1: return SEL_C_OE_GPI | LD_TF;
-        case 0x2: return OE_MEM | LD_C(0b0111) | LD_GPO | LD_S; // Deassert RTS
+        case 0x1: return OE_MEM;
+        case 0x2: return SEL_C_OE_GPI | LD_TF;
+        case 0x3: return OE_MEM | LD_C(0b0111) | LD_GPO | LD_S; // Deassert RTS
         }
         break;
 
@@ -483,6 +488,37 @@ static uint16_t signals_intruction(uint8_t i, uint8_t s, uint8_t tf, uint8_t end
         case 0xc: return OE_ALU | LD_MEM         | LD_C(RL | CN); // mem[A] = revers bits of T
         case 0xd: return OE_MEM | LD_RL          | LD_C(RH | CN);
         case 0xe: return OE_MEM | LD_RH          | LD_C(M) | LD_S;
+        }
+        break;
+
+    case OUT_11:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+        case 0x1: return OE_MEM | LD_C(11)| LD_GPO;
+        case 0x2: return OE_MEM | LD_C(M) | LD_S;
+        }
+        break;
+
+    case OUT_13:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+        case 0x1: return OE_MEM | LD_C(13)| LD_GPO;
+        case 0x2: return OE_MEM | LD_C(M) | LD_S;
+        }
+        break;
+
+    case OUT_15:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+        case 0x1: return OE_MEM | LD_C(15)| LD_GPO;
+        case 0x2: return OE_MEM | LD_C(M) | LD_S;
+        }
+        break;
+
+    case IN_F:
+        switch (s) {
+        case 0x0: return S0_FETCH;
+        case 0x1: return SEL_C_OE_GPI | LD_TF | LD_S;  // Store inputs into TF
         }
         break;
 
@@ -681,10 +717,10 @@ static bool write_rom(size_t size, uint8_t rom[size], const char *filename) {
 }
 
 int main(void) {
-    uint8_t rom_program[ROM_SIZE_PROGRAM] = {
-    /* 0x00 */ 0x00, 0x01, 0x45, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x20, 0x25, 0x21,
-    /* 0x10 */ 0x21, 0x21, 0x21, 0x81, 0x00, 0x0d, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x24, 0x0f, 0x11,
-    /* 0x20 */ 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x80, 0x00, 0x0d
+    uint8_t rom_program[ROM_SIZE_PROGRAM] =  {
+    /* 0x00 */ 0x00, 0x01, 0x45, 0x0f, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x12, 0x9d, 0xa0, 0x81,
+    /* 0x10 */ 0x00, 0x0e, 0x9f, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x24, 0x0f, 0x11, 0x11, 0x11, 0x11,
+    /* 0x20 */ 0x11, 0x11, 0x11, 0x11, 0x12, 0x80, 0x00, 0x0d
     };
 
     // for (uint16_t i = 0; i < ROM_SIZE_PROGRAM; ++i) {
